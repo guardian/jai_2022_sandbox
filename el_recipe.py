@@ -56,35 +56,53 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     # Read the pre-defined CSV file into dictionaries mapping QIDs to the full names and descriptions
     id_dict = dict()
     
-    kb_entities=pd.read_csv(entity_loc, names=['qid','name','desc'])
+    #kb_entities=pd.read_csv(entity_loc, names=['qid','name','desc'])
+    kb_entities = pd.read_csv(entity_loc, index_col=0)
+    kb_entities['id']=kb_entities['id'].astype(str)
+    kb_entities['name'] = kb_entities['name'].astype(str)
+    kb_entities['desc'] = kb_entities['desc'].astype(str)
+    kb_entities['kb_url'] = kb_entities['kb_url'].astype(str)
+    kb_entities_url=kb_entities[['id','name','kb_url']]
+    kb_entities = kb_entities[['id', 'name', 'desc']]
     for row in kb_entities.iterrows():
         qid = str(row[1][0])
         name = str(row[1][1])
         desc = str(row[1][2])
         id_dict[qid] = (name, desc)
-    
-    
+
     #with entity_loc.open("r", encoding="utf8") as csvfile:
         #csvreader = csv.reader(csvfile, delimiter=",")
         #for row in csvreader:
             #id_dict[row[0]] = (row[1], row[2])
 
     # Initialize the Prodigy stream by running the NER model
-    stream = TXT(source)
+    source=pd.read_csv(source, index_col=0)
+    #stream = TXT(source)
+    stream=TXT(source['paragraphs'].values)
+    stream_url = list(source['url'].values)
     stream = [set_hashes(eg) for eg in stream]
+    # add gu_url to hashed txt stream
+    for dict_, url in zip(stream, stream_url):
+        dict_['gu_url'] = url
     stream = (eg for score, eg in model(stream))
 
+
     # For each NER mention, add the candidates from the KB to the annotation task
-    stream = _add_options(stream, kb, nlp, id_dict)
+    stream = _add_options(stream, kb, nlp, id_dict, kb_entities_url)
     stream = filter_duplicates(stream, by_input=False, by_task=True)
+
+    blocks=[{"view_id": "html",
+             "html_template": "<a href="'https://{{gu_url}}'+">Guardian Article URL</a>"
+         },
+            {"view_id":"choice"},
+         ]
 
     return {
         "dataset": dataset,
         "stream": stream,
-        "view_id": "choice",
-        "config": {"choice_auto_accept": False},
+        "view_id": "blocks",
+        "config": {"blocks":blocks,"choice_auto_accept": False, "buttons": ["accept", "undo"],}
     }
-
 
 def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[Candidate]:
     """
@@ -93,7 +111,6 @@ def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[
     and the prior probability of that alias resolving to that entity.
     If the alias is not known in the KB, and empty list is returned.
     """
-
     aliases=kb.get_alias_strings()
     #matches=[]
     matches={}
@@ -103,13 +120,85 @@ def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[
         if fuzzy_ratio >=matching_thres:
             #matches.append(al)
             matches[al]=fuzzy_ratio
-
     candidates=[]
     for match in matches:
         candidates.extend(kb.get_alias_candidates(match))
-
     return candidates, matches
 
+def order_candidates_fuzzy_score(candidates, matches, candidate_limit=12):
+    """
+    Order candidates by descending fuzzy name matching score
+    """
+    # names = dict()
+    candidate_d = dict()
+    fuzzy_scores = dict()
+    for candidate in candidates:
+        qid = candidate.entity_
+        name = candidate.alias_
+        # names[qid] = name
+        candidate_d[qid] = candidate
+        fuzzy_scores[qid] = matches[name]
+    entities_ordered = dict(sorted(fuzzy_scores.items(), key=itemgetter(1), reverse=True))
+    entities_ordered = list(entities_ordered.keys())[:candidate_limit]
+    return [candidate_d[entity] for entity in entities_ordered]
+
+def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
+    """Define the options the annotator will be given, by consulting the candidates from the KB for each NER span
+    using a bespoke logic to only surface plausibly relevant candidates.
+    """
+    for task in stream:
+        text = task["text"]
+        for mention in task["spans"]:
+            if mention["label"] in ['PERSON']:
+                start_char = int(mention["start"])
+                end_char = int(mention["end"])
+                doc = nlp(text)
+                span = doc.char_span(start_char, end_char, mention["label"])
+                candidates, matches = get_candidates_from_fuzzy_matching(span.text, kb)
+
+                """
+                candidate_limit=10
+                if not candidates:
+                    candidates=get_all_kb_candidates(kb)
+                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
+
+                if len(candidates) > candidate_limit:
+                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
+                """
+
+                #candidates=order_candidates_alphabetically(candidates)
+                candidates=order_candidates_fuzzy_score(candidates, matches)
+                if candidates:
+                    options=[]
+                    # we add in a few additional options in case a correct ID can not be picked
+                    options.append({"id": "NEL_otherLink", "text": "No viable candidate."})
+                    options.append({"id": "NEL_ambiguous", "text": "Need more context to decide."})
+                    options.append({"id": "NER_mislabeled", "text": "Incorrect entity type returned by NER model."})
+
+                    options.extend([
+                        {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
+                        for c in candidates
+                    ])
+
+                    # we sort the options by ID
+                    #options = sorted(options, key=lambda r: int(r["id"][1:]))
+
+                    task["options"] = options
+                    task["config"] = {"choice_style": "multiple"}
+                    yield task
+
+def _print_info(entity_id, id_dict, score, kb_entities_url):
+    """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
+    name, descr = id_dict.get(entity_id)
+    score=round(score)
+    url=kb_entities_url.loc[kb_entities_url['id']==str(entity_id), 'kb_url'].values[0]
+    descr_two_sentences='.'.join(descr.split('.')[:2])+'.'
+    option = "<a href='" + f'{url}' + "'>" + entity_id + "</a>: " + name + '; ' + descr_two_sentences + f' Score: {score}'
+    #name + " [" + entity_id + "]: " + descr_two_sentences + f' Score: {score}' + f' URL: {url}'
+    return option
+
+
+###
 def embed_text(text,nlp):
     """
     Return spaCy embedding of a text.
@@ -173,73 +262,3 @@ def order_candidates_alphabetically(candidates):
     candidates_alphabetical = {candidate.alias_ + ' ' + candidate.entity_: candidate for candidate in candidates}
     candidates_alphabetical = dict(sorted(candidates_alphabetical.items(), key=itemgetter(0), reverse=False))
     return [candidate for candidate in candidates_alphabetical.values()]
-
-def order_candidates_fuzzy_score(candidates, matches, candidate_limit=12):
-    """
-    Order candidates by descending fuzzy name matching score
-    """
-    # names = dict()
-    candidate_d = dict()
-    fuzzy_scores = dict()
-    for candidate in candidates:
-        qid = candidate.entity_
-        name = candidate.alias_
-        # names[qid] = name
-        candidate_d[qid] = candidate
-        fuzzy_scores[qid] = matches[name]
-
-    entities_ordered = dict(sorted(fuzzy_scores.items(), key=itemgetter(1), reverse=True))
-    entities_ordered = list(entities_ordered.keys())[:candidate_limit]
-    return [candidate_d[entity] for entity in entities_ordered]
-
-
-def _add_options(stream, kb, nlp, id_dict):
-    """Define the options the annotator will be given, by consulting the candidates from the KB for each NER span
-    using a bespoke logic to only surface plausibly relevant candidates.
-    """
-    for task in stream:
-        text = task["text"]
-        for mention in task["spans"]:
-            if mention["label"] in ['PERSON','ORG']:
-                start_char = int(mention["start"])
-                end_char = int(mention["end"])
-                doc = nlp(text)
-                span = doc.char_span(start_char, end_char, mention["label"])
-                candidates, matches = get_candidates_from_fuzzy_matching(span.text, kb)
-
-                """
-                candidate_limit=10
-                if not candidates:
-                    candidates=get_all_kb_candidates(kb)
-                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
-
-                if len(candidates) > candidate_limit:
-                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
-                """
-
-                #candidates=order_candidates_alphabetically(candidates)
-                candidates=order_candidates_fuzzy_score(candidates, matches)
-                if candidates:
-                    options = [
-                        {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_])}
-                        for c in candidates
-                    ]
-
-                    # we sort the options by ID
-                    #options = sorted(options, key=lambda r: int(r["id"][1:]))
-
-                    # we add in a few additional options in case a correct ID can not be picked
-                    options.append({"id": "NIL_otherLink", "text": "Link not in options"})
-                    options.append({"id": "NIL_ambiguous", "text": "Need more context"})
-
-                    task["options"] = options
-                    yield task
-
-
-def _print_info(entity_id, id_dict, score):
-    """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
-    name, descr = id_dict.get(entity_id)
-    score=round(score)
-    descr_two_sentences='.'.join(descr.split('.')[:2])+'.'
-    option = name + " [" + entity_id + "]: " + descr_two_sentences + f' Score: {score}'
-    return option
