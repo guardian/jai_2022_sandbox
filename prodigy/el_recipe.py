@@ -48,7 +48,7 @@ from operator import itemgetter
 )
 def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
     # Load the NLP and KB objects from file
-    nlp = spacy.load(nlp_loc, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec"])
+    nlp = spacy.load(nlp_loc, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec", "transformer"])
     kb = KnowledgeBase(vocab=nlp.vocab, entity_vector_length=1)
     kb.from_disk(kb_loc)
     model = EntityRecognizer(nlp)
@@ -92,7 +92,7 @@ def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
     stream = filter_duplicates(stream, by_input=False, by_task=True)
 
     blocks=[{"view_id": "html",
-             "html_template": "<a href="'https://{{gu_url}}'+"target=\"_blank\">Guardian Article URL</a>"
+             "html_template": "<a href=https://{{gu_url}} target=\"_blank\">Guardian Article URL</a>"
          },
             {"view_id":"choice"},
          ]
@@ -190,11 +190,23 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
 def _print_info(entity_id, id_dict, score, kb_entities_url):
     """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
     name, descr = id_dict.get(entity_id)
-    score=round(score)
-    url=kb_entities_url.loc[kb_entities_url['id']==str(entity_id), 'kb_url'].values[0]
-    descr_two_sentences='.'.join(descr.split('.')[:2])+'.'
-    option = "<a class=\"entLink\" href='" + f'{url}' + "' target='_blank' onclick=\"clickMe(event)\">" + entity_id + "</a>"
-    option += ": " + name + '; ' + descr_two_sentences
+    url = kb_entities_url.loc[kb_entities_url['id'] == str(entity_id), 'kb_url'].values[0]
+    n_splits = 2
+    short_desc = '. '.join(descr.split('.')[:n_splits])
+    while len(short_desc) < 50:
+        n_splits += 1
+        new_short_desc = '. '.join(descr.split('.')[:n_splits])
+        if len(new_short_desc) == len(short_desc):
+            break
+        short_desc = new_short_desc
+        if len(short_desc) > 80:
+            n_splits -= 1
+            short_desc = '. '.join(descr.split('.')[:n_splits])
+            break
+    # Prodigy option display text
+    option = f'<a class="entLink" href="{url}" target="_blank" onclick="clickMe(event)"> {entity_id} </a>'
+    option += ": " + name + '\n' + short_desc
+
     return option
 
 
