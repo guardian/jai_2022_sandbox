@@ -93,7 +93,7 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     stream = filter_duplicates(stream, by_input=False, by_task=True)
 
     blocks=[{"view_id": "html",
-             "html_template": "<a href="'https://{{gu_url}}'+">Guardian Article URL</a>"
+             "html_template": "<a href="'https://{{gu_url}}'+"target=\"_blank\">Guardian Article URL</a>"
          },
             {"view_id":"choice"},
          ]
