@@ -32,11 +32,11 @@ from operator import itemgetter
     "entity_linker.manual",
     dataset=("The dataset to use", "positional", None, str),
     source=("The source data as a .txt file", "positional", None, Path),
-    nlp_dir=(
-        "Path to the NLP model with a pretrained NER component",
+    nlp_loc=(
+        "Path to OR name of the NLP model with a pretrained NER component",
         "positional",
         None,
-        Path,
+        str,
     ),
     kb_loc=("Path to the KB", "positional", None, Path),
     entity_loc=(
@@ -45,11 +45,10 @@ from operator import itemgetter
         None,
         Path,
     ),
-    loader=("Loader (guessed from file extension if not set)", "option", "lo", str)
 )
-def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
+def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
     # Load the NLP and KB objects from file
-    nlp = spacy.load(nlp_dir, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec"])
+    nlp = spacy.load(nlp_loc, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec"])
     kb = KnowledgeBase(vocab=nlp.vocab, entity_vector_length=1)
     kb.from_disk(kb_loc)
     model = EntityRecognizer(nlp)
