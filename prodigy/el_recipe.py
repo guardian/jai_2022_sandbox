@@ -171,9 +171,9 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                 if candidates:
                     options=[]
                     # we add in a few additional options in case a correct ID can not be picked
-                    options.append({"id": "NEL_otherLink", "text": "No viable candidate."})
-                    options.append({"id": "NEL_ambiguous", "text": "Need more context to decide."})
-                    options.append({"id": "NER_mislabeled", "text": "Incorrect entity type returned by NER model."})
+                    options.append({"id": "NEL_NoCandidate", "text": "No viable candidate."})
+                    options.append({"id": "NEL_MoreContext", "text": "Need more context to decide."})
+                    options.append({"id": "NER_WrongType", "text": "Incorrect entity type returned by NER model."})
 
                     options.extend([
                         {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
