@@ -27,6 +27,7 @@ from numpy import dot
 from numpy.linalg import norm
 from operator import itemgetter
 
+from gu_model.trf_tensor_to_vec import *
 
 @prodigy.recipe(
     "entity_linker.manual",
@@ -48,7 +49,11 @@ from operator import itemgetter
 )
 def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     # Load the NLP and KB objects from file
-    nlp = spacy.load(nlp_dir)
+    #nlp = spacy.load(nlp_dir)
+    ##nlp = spacy.load("en_core_web_trf")
+    nlp = spacy.load('gu_model/en_ner_guardian-1.0.3/en_ner_guardian/en_ner_guardian-1.0.3',
+                     disable=['transformer', 'tagger', 'parser', 'lemmatizer', 'attribute_ruler'])
+    nlp.add_pipe('tensor2attr')
     kb = KnowledgeBase(vocab=nlp.vocab, entity_vector_length=1)
     kb.from_disk(kb_loc)
     model = EntityRecognizer(nlp)
@@ -77,6 +82,8 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
 
     # Initialize the Prodigy stream by running the NER model
     source=pd.read_csv(source, index_col=0)
+    n_paragraphs=5000
+    source=source.sample(n_paragraphs, random_state=42)
     #stream = TXT(source)
     stream=TXT(source['paragraphs'].values)
     stream_url = list(source['url'].values)
@@ -92,7 +99,7 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     stream = filter_duplicates(stream, by_input=False, by_task=True)
 
     blocks=[{"view_id": "html",
-             "html_template": "<a href="'https://{{gu_url}}'+">Guardian Article URL</a>"
+             "html_template": "<a href="'https://{{gu_url}}' + " target='_blank'>Guardian Article URL</a>"
          },
             {"view_id":"choice"},
          ]
@@ -101,7 +108,10 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
         "dataset": dataset,
         "stream": stream,
         "view_id": "blocks",
-        "config": {"blocks":blocks,"choice_auto_accept": False, "buttons": ["accept", "undo"],}
+        "config": {"blocks":blocks,
+                   "choice_auto_accept": False,
+                   "buttons": ["accept", "undo"],
+                   }
     }
 
 def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[Candidate]:
@@ -171,9 +181,9 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                 if candidates:
                     options=[]
                     # we add in a few additional options in case a correct ID can not be picked
-                    options.append({"id": "NEL_otherLink", "text": "No viable candidate."})
-                    options.append({"id": "NEL_ambiguous", "text": "Need more context to decide."})
-                    options.append({"id": "NER_mislabeled", "text": "Incorrect entity type returned by NER model."})
+                    options.append({"id": "NEL_NoCandidate", "text": "No viable candidate."})
+                    options.append({"id": "NEL_MoreContext", "text": "Need more context to decide."})
+                    options.append({"id": "NER_WrongType", "text": "Incorrect entity type returned by NER model."})
 
                     options.extend([
                         {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
@@ -190,11 +200,27 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
 def _print_info(entity_id, id_dict, score, kb_entities_url):
     """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
     name, descr = id_dict.get(entity_id)
-    score=round(score)
+    #score=round(score)
     url=kb_entities_url.loc[kb_entities_url['id']==str(entity_id), 'kb_url'].values[0]
-    descr_two_sentences='.'.join(descr.split('.')[:2])+'.'
-    option = "<a href='" + f'{url}' + "'>" + entity_id + "</a>: " + name + '; ' + descr_two_sentences + f' Score: {score}'
-    #name + " [" + entity_id + "]: " + descr_two_sentences + f' Score: {score}' + f' URL: {url}'
+    # Tailor output description length
+    n_splits = 2
+    short_desc='. '.join(descr.split('.')[:n_splits])
+    while len(short_desc) < 50:
+        n_splits+=1
+        new_short_desc = '. '.join(descr.split('.')[:n_splits])
+        if len(new_short_desc)==len(short_desc):
+            break
+        short_desc=new_short_desc
+        if len(short_desc) > 80:
+            n_splits -= 1
+            short_desc = '. '.join(descr.split('.')[:n_splits])
+            break
+    # Prodigy option display text
+    option = "<a class=\"entLink\" href='" + f'{url}' + "' target='_blank' onclick=\"clickMe(event)\">" + entity_id + "</a>"
+    option += ": " + name + '; \n' + short_desc
+
+    #option = "<a href='" + f'{url}' + "' target=\"_blanc\" >" + entity_id + "</a>: " + name + '; \n' + short_desc
+    # + f' Score: {score}'
     return option
 
 
