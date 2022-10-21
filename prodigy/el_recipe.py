@@ -5,7 +5,7 @@ You can run this project without having Prodigy or using this recipe:
 sample results are stored in assets/emerson_annotated_text.jsonl
 """
 
-from typing import Iterator
+from typing import Iterator, Optional
 
 import spacy
 from spacy.kb import KnowledgeBase, Candidate #, get_candidates
@@ -13,7 +13,7 @@ from spacy.kb import KnowledgeBase, Candidate #, get_candidates
 import prodigy
 from prodigy.models.ner import EntityRecognizer
 from prodigy.components.loaders import TXT
-from prodigy.util import set_hashes
+from prodigy.util import set_hashes, log
 from prodigy.components.filters import filter_duplicates
 
 #import csv
@@ -45,10 +45,11 @@ from operator import itemgetter
         None,
         Path,
     ),
+    loader=("Loader (guessed from file extension if not set)", "option", "lo", str)
 )
 def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     # Load the NLP and KB objects from file
-    nlp = spacy.load(nlp_dir)
+    nlp = spacy.load(nlp_dir, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec"])
     kb = KnowledgeBase(vocab=nlp.vocab, entity_vector_length=1)
     kb.from_disk(kb_loc)
     model = EntityRecognizer(nlp)
