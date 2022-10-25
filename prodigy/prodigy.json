@@ -19,11 +19,6 @@
       "mediumText": 24,
       "smallText": 20,
       "fontPrimary": [
-          "Lato",
-          "Helvetica",
-          "Roboto",
-          "Arial",
-          "sans-serif"
       ],
       "fontSecondary": [
           "Roboto Condensed",
