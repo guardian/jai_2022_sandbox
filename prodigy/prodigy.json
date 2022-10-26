@@ -36,6 +36,7 @@
   ],
   "show_stats": true,
   "show_flag": true,
+  "instructions": "instructions.html",
   "javascript": "function clickMe(e) {\ne.stopPropagation();\n}",
   "global_css": ".prodigy-content > div > label { font-family: Lato, Helvetica, Roboto, Arial, sans-serif; } .prodigy-content > div > mark { padding: 0; font-family: Georgia; } p { margin-top: 3em; margin-bottom: 3em; } .prodigy-content > div { line-height: 1.6; font-family: Georgia; }"
 }
