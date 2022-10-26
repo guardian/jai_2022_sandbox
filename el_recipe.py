@@ -66,8 +66,8 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
 
     # Initialize the Prodigy stream by running the NER model
     source = pd.read_csv(source, index_col=0)
-    n_paragraphs = 25000
-    source = source.sample(n_paragraphs, random_state=42)
+    #n_paragraphs = 25000
+    #source = source.sample(n_paragraphs, random_state=42)
     stream = TXT(source['paragraphs'].values)
     stream_url = list(source['url'].values)
     stream = [set_hashes(eg) for eg in stream]
@@ -189,17 +189,19 @@ def _print_info(entity_id, id_dict, score, kb_entities_url):
     url = kb_entities_url.loc[kb_entities_url['id'] == str(entity_id), 'kb_url'].values[0]
     # Tailor output description length
     n_splits = 2
-    short_desc = '. '.join(descr.split('.')[:n_splits])
+    short_desc = '. '.join(descr.split('. ')[:n_splits])
     while len(short_desc) < 50:
         n_splits += 1
-        new_short_desc = '. '.join(descr.split('.')[:n_splits])
+        new_short_desc = '. '.join(descr.split('. ')[:n_splits])
         if len(new_short_desc) == len(short_desc):
             break
         short_desc = new_short_desc
-        if len(short_desc) > 80:
+        if len(short_desc) > 500:
             n_splits -= 1
-            short_desc = '. '.join(descr.split('.')[:n_splits])
+            short_desc = '. '.join(descr.split('. ')[:n_splits])
             break
+    if short_desc.replace(' ','')[-1]!='.':
+        short_desc+='.'
     # Prodigy option display text
     option = "<a class=\"entLink\" href='" + f'{url}' + "' target='_blank' onclick=\"clickMe(event)\">" + entity_id + "</a>"
     option += ": " + name + '; \n' + short_desc
