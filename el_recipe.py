@@ -181,6 +181,27 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                     task["config"] = {"choice_style": "multiple"}
                     yield task
 
+def shorten_description(descr, n_splits = 2, min_desc_len = 50, max_desc_len = 500):
+    # Keep description output len within min and max limits
+    # This only affects the Prodigy UI text, not the original KB desc.
+    short_descr = '. '.join(descr.split('. ')[:n_splits])
+    while len(short_descr) < min_desc_len:
+        # Keep extending description length
+        n_splits += 1
+        new_desc_str = '. '.join(descr.split('. ')[:n_splits])
+        if len(new_desc_str) == len(short_descr):
+            # Max possible len break clause
+            break
+        short_descr = new_desc_str
+        if len(short_descr) > max_desc_len:
+            # Keep description length up to max limit
+            n_splits -= 1
+            short_descr = '. '.join(descr.split('. ')[:n_splits])
+            break
+    if short_descr.replace(' ', '')[-1] != '.':
+        # Ensure stop mark at the end of description
+        short_descr += '.'
+    return short_descr
 
 def _print_info(entity_id, id_dict, score, kb_entities_url):
     """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
@@ -188,23 +209,10 @@ def _print_info(entity_id, id_dict, score, kb_entities_url):
     # score=round(score)
     url = kb_entities_url.loc[kb_entities_url['id'] == str(entity_id), 'kb_url'].values[0]
     # Tailor output description length
-    n_splits = 2
-    short_desc = '. '.join(descr.split('. ')[:n_splits])
-    while len(short_desc) < 50:
-        n_splits += 1
-        new_short_desc = '. '.join(descr.split('. ')[:n_splits])
-        if len(new_short_desc) == len(short_desc):
-            break
-        short_desc = new_short_desc
-        if len(short_desc) > 500:
-            n_splits -= 1
-            short_desc = '. '.join(descr.split('. ')[:n_splits])
-            break
-    if short_desc.replace(' ','')[-1]!='.':
-        short_desc+='.'
+    short_descr = shorten_description(descr)
     # Prodigy option display text
     option = "<a class=\"entLink\" href='" + f'{url}' + "' target='_blank' onclick=\"clickMe(event)\">" + entity_id + "</a>"
-    option += ": " + name + '; \n' + short_desc
+    option += ": " + name + '; \n' + short_descr
     return option
 
 ### Not used in current iteration
