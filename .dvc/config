@@ -1,0 +1,4 @@
+[core]
+    analytics = false
+['remote "storage"']
+    url = s3://jai-dvc-test/
