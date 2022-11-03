@@ -12,21 +12,16 @@ from spacy.kb import KnowledgeBase, Candidate #, get_candidates
 
 import prodigy
 from prodigy.models.ner import EntityRecognizer
-from prodigy.components.loaders import TXT
+from prodigy.components.loaders import TXT, JSONL
 from prodigy.util import set_hashes, log
 from prodigy.components.filters import filter_duplicates
 
-#import csv
 from pathlib import Path
 
 import rapidfuzz
 
 import pandas as pd
-import numpy as np
-from numpy import dot
-from numpy.linalg import norm
 from operator import itemgetter
-
 
 @prodigy.recipe(
     "entity_linker.manual",
@@ -46,6 +41,7 @@ from operator import itemgetter
         Path,
     ),
 )
+
 def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
     # Load the NLP and KB objects from file
     nlp = spacy.load(nlp_loc, exclude=["tagger", "parser", "lemmatizer", "attribute_ruler", "tok2vec", "transformer"])
@@ -67,23 +63,19 @@ def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
         name = str(row[1][1])
         desc = str(row[1][2])
         id_dict[qid] = (name, desc)
-
+    del(kb_entities)
     # Initialize the Prodigy stream by running the NER model
-    source=pd.read_csv(source, index_col=0)
-    stream=TXT(source['paragraphs'].values)
-    stream_url = list(source['url'].values)
-    stream = [set_hashes(eg) for eg in stream]
-    # add gu_url to hashed txt stream
-    for dict_, url in zip(stream, stream_url):
-        dict_['gu_url'] = url
+    ## Faster reading by using generators
+    stream = JSONL(source)
+    stream = (set_hashes(eg) for eg in stream)
     stream = (eg for score, eg in model(stream))
 
-    # For each NER mention, add the candidates from the KB to the annotation task
-    stream = _add_options(stream, kb, nlp, id_dict, kb_entities_url)
+    # For each NER mention, add the candidates from the KB to the annotation task as well as the url of the article
+    stream = _add_options(stream, kb, id_dict, kb_entities_url)
     stream = filter_duplicates(stream, by_input=False, by_task=True)
 
     blocks=[{"view_id": "html",
-             "html_template": "<a href=https://{{gu_url}} target=\"_blank\">Guardian Article URL</a>"
+             "html_template": "<a href=https://{{url}} target=\"_blank\">Guardian Article URL</a>"
          },
             {"view_id":"choice"},
          ]
@@ -128,36 +120,33 @@ def order_candidates_fuzzy_score(candidates, matches, candidate_limit=12):
     entities_ordered = list(entities_ordered.keys())[:candidate_limit]
     return [candidate_d[entity] for entity in entities_ordered]
 
-def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
+def _add_options(stream,  kb, id_dict, kb_entities_url):
     """Define the options the annotator will be given, by consulting the candidates from the KB for each NER span
     using a bespoke logic to only surface plausibly relevant candidates.
     """
     for task in stream:
-        text = task["text"]
-        for mention in task["spans"]:
-            if mention["label"] in ['PERSON']:
-                start_char = int(mention["start"])
-                end_char = int(mention["end"])
-                doc = nlp(text)
-                span = doc.char_span(start_char, end_char, mention["label"])
-                candidates, matches = get_candidates_from_fuzzy_matching(span.text, kb)
+        for mention in filter(lambda m: m["label"] in ["PERSON"], task["spans"]):
+            start_char = int(mention["start"])
+            end_char = int(mention["end"])
+            span_text = task["text"][start_char: end_char]
+            candidates, matches = get_candidates_from_fuzzy_matching(span_text, kb)
 
-                candidates=order_candidates_fuzzy_score(candidates, matches)
-                if candidates:
-                    options=[]
-                    # we add in a few additional options in case a correct ID can not be picked
-                    options.append({"id": "NER_WrongType", "text": "Incorrect entity type returned by NER model."})
-                    options.append({"id": "NEL_MoreContext", "text": "Need more context to decide."})
-                    options.append({"id": "NEL_NoCandidate", "text": "No viable candidate."})
+            candidates=order_candidates_fuzzy_score(candidates, matches)
+            if candidates:
+                options=[]
+                # we add in a few additional options in case a correct ID can not be picked
+                options.append({"id": "NER_WrongType", "text": "Incorrect entity type returned by NER model."})
+                options.append({"id": "NEL_MoreContext", "text": "Need more context to decide."})
+                options.append({"id": "NEL_NoCandidate", "text": "No viable candidate."})
 
-                    options.extend([
-                        {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
-                        for c in candidates
-                    ])
+                options.extend([
+                    {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
+                    for c in candidates
+                ])
 
-                    task["options"] = options
-                    task["config"] = {"choice_style": "multiple"}
-                    yield task
+                task["options"] = options
+                task["config"] = {"choice_style": "multiple"}
+                yield task
 
 def shorten_description(descr, n_splits = 2, min_desc_len = 50, max_desc_len = 500):
     # Keep description output len within min and max limits
