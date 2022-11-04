@@ -2,13 +2,15 @@
 
 - Knowledge Base input files
   (- Knowledge Base )
+  [kb_clean_merge_datasets.py]
 - Enriched candidate data
 - Input data
 - Annotation data
+  
 - Spacy config
 - Spacy meta.json
 - Spacy model??
-
+  [prepare_training.py, train.py]
 
 # Pipeline
 
