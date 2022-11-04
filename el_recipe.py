@@ -3,14 +3,17 @@ Custom Prodigy recipe to perform manual annotation of entity links,
 given an existing NER model and a knowledge base performing candidate generation.
 """
 
+import string
 from operator import itemgetter
 from pathlib import Path
 from typing import Iterator
 
+import nltk
 import pandas as pd
 import prodigy
 import rapidfuzz
 import spacy
+from nltk.tokenize import word_tokenize
 from numpy import dot
 from numpy.linalg import norm
 from prodigy.components.filters import filter_duplicates
@@ -55,8 +58,10 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     kb_entities['name'] = kb_entities['name'].astype(str)
     kb_entities['desc'] = kb_entities['desc'].astype(str)
     kb_entities['kb_url'] = kb_entities['kb_url'].astype(str)
-    kb_entities_url = kb_entities[['id', 'name', 'kb_url']]
-    kb_entities = kb_entities[['id', 'name', 'desc']]
+    kb_entities = kb_entities[['id', 'name', 'desc', 'kb_url']]
+
+    kb_entities['desc_len'] = kb_entities['desc'].str.len()
+
     id_dict = dict()
     for row in kb_entities.iterrows():
         qid = str(row[1][0])
@@ -66,8 +71,6 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
 
     # Initialize the Prodigy stream by running the NER model
     source = pd.read_csv(source, index_col=0)
-    #n_paragraphs = 25000
-    #source = source.sample(n_paragraphs, random_state=42)
     stream = TXT(source['paragraphs'].values)
     stream_url = list(source['url'].values)
     stream = [set_hashes(eg) for eg in stream]
@@ -77,7 +80,7 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     stream = (eg for score, eg in model(stream))
 
     # For each NER mention, add the candidates from the KB to the annotation task
-    stream = _add_options(stream, kb, nlp, id_dict, kb_entities_url)
+    stream = _add_options(stream, kb, nlp, id_dict, kb_entities)  # _url)
     stream = filter_duplicates(stream, by_input=False, by_task=True)
 
     blocks = [{"view_id": "html",
@@ -97,7 +100,7 @@ def entity_linker_manual(dataset, source, nlp_dir, kb_loc, entity_loc):
     }
 
 
-def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[Candidate]:
+def get_candidates_from_fuzzy_matching(span, kb, single_name=False, matching_thres=60) -> Iterator[Candidate]:
     """
     Return a list of candidate entities for an alias based on fuzzy string matching.
     Each candidate defines the entity, the original alias,
@@ -105,39 +108,30 @@ def get_candidates_from_fuzzy_matching(span, kb, matching_thres=60) -> Iterator[
     If the alias is not known in the KB, and empty list is returned.
     """
     aliases = kb.get_alias_strings()
-    # matches=[]
     matches = {}
     for al in aliases:
-        # fuzzy_ratio=rapidfuzz.fuzz.token_set_ratio(span.lower(),al.lower())
-        fuzzy_ratio = rapidfuzz.fuzz.WRatio(span.lower(), al.lower())
+        if single_name:
+            # For single name mentions, e.g. Trump, use partial_ratio
+            fuzzy_ratio = rapidfuzz.fuzz.partial_ratio(span.lower(), al.lower())
+        else:
+            # For multi name mentions, e.g. Donald Trump, use WRatio
+            fuzzy_ratio = rapidfuzz.fuzz.WRatio(span.lower(), al.lower())
         if fuzzy_ratio >= matching_thres:
-            # matches.append(al)
             matches[al] = fuzzy_ratio
     candidates = []
     for match in matches:
         candidates.extend(kb.get_alias_candidates(match))
     return candidates, matches
 
-
-def order_candidates_fuzzy_score(candidates, matches, candidate_limit=12):
-    """
-    Order candidates by descending fuzzy name matching score
-    """
-    # names = dict()
-    candidate_d = dict()
-    fuzzy_scores = dict()
-    for candidate in candidates:
-        qid = candidate.entity_
-        name = candidate.alias_
-        # names[qid] = name
-        candidate_d[qid] = candidate
-        fuzzy_scores[qid] = matches[name]
-    entities_ordered = dict(sorted(fuzzy_scores.items(), key=itemgetter(1), reverse=True))
-    entities_ordered = list(entities_ordered.keys())[:candidate_limit]
-    return [candidate_d[entity] for entity in entities_ordered]
+def relevant_lexicon(text, stopwords):
+    # Extract the set of words from a text field
+    punctuation_rm = str.maketrans('', '', string.punctuation)
+    text = text.translate(punctuation_rm)
+    word_set = set(word_tokenize(text))
+    return word_set.difference(stopwords)
 
 
-def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
+def _add_options(stream, kb, nlp, id_dict, kb_entities):  # _url):
     """Define the options the annotator will be given, by consulting the candidates from the KB for each NER span
     using a bespoke logic to only surface plausibly relevant candidates.
     """
@@ -149,22 +143,65 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                 end_char = int(mention["end"])
                 doc = nlp(text)
                 span = doc.char_span(start_char, end_char, mention["label"])
-                candidates, matches = get_candidates_from_fuzzy_matching(span.text, kb)
+                mention = span.text
+                single_name = len(mention.split(' ')) <= 1
+                # Retrieve a wide list of candidates based on fuzzy string matching and similarity score
+                candidates, matches = get_candidates_from_fuzzy_matching(mention, kb, single_name)
 
-                ## Not used in current iteration
-                ## Here for further development
-                """
-                candidate_limit=10
-                if not candidates:
-                    candidates=get_all_kb_candidates(kb)
-                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
+                # Convert candidate and scores to df
+                matches_df = pd.DataFrame.from_dict(matches, orient='index').reset_index().rename(
+                    columns={'index': 'name', 0: 'score'})
+                # Merge kb entity description
+                matches_df = matches_df.merge(kb_entities, on=['name'], how='left')
+                # Retain candidates with scores in top decile
+                top_decile=0.9
+                score_thres = matches_df['score'].quantile(top_decile)
+                matches_df = matches_df[matches_df['score'] >= score_thres]
+                # Sort based on score and length of description text
+                matches_df = matches_df.sort_values(by=['score', 'desc_len'], ascending=False).reset_index(drop=True)
+                # Increase score in candidates with a wikiID
+                matches_df.loc[matches_df['id'].str.match('Q\d'), 'score'] = matches_df.loc[matches_df['id'].str.match(
+                    'Q\d'), 'score'] * 1.05
+                # Calculate normalised min/max description length.
+                # Descriptions over 300 characters long are capped at 1.
+                max_len = 300
+                min_len = matches_df['desc_len'].min()
+                matches_df['normalised_desc_len'] = (matches_df['desc_len'] - min_len) / (max_len - min_len)
+                matches_df['normalised_desc_len'] = matches_df['normalised_desc_len'].apply(lambda x: 1 if x > 1 else x)
 
-                if len(candidates) > candidate_limit:
-                    candidates=get_candidates_from_context(text, nlp, candidates, matches, candidate_limit)
-                """
+                # Find common words between paragraph and candidate descriptions
+                stopwords = set(nltk.corpus.stopwords.words())
+                desc_ents_d = dict()
+                column_order = matches_df.reset_index().columns.values
+                id_loc, = np.where(column_order == 'id')
+                desc_loc, = np.where(column_order == 'desc')
+                for tuple_ in matches_df.itertuples():
+                    qid = tuple_[id_loc[0]]
+                    desc = tuple_[desc_loc[0]]
+                    desc_ents = relevant_lexicon(desc, stopwords)
+                    desc_ents_d[qid] = desc_ents
 
-                # candidates=order_candidates_alphabetically(candidates)
-                candidates = order_candidates_fuzzy_score(candidates, matches)
+                common_ent_count_d = {}
+                sentence_ents = [str(ent) for ent in nlp(text).ents]
+                sentence_ents = set(' '.join(sentence_ents).split())
+                for qid, ent in desc_ents_d.items():
+                    common_ent_counts = len(sentence_ents.intersection(ent))
+                    common_ent_count_d[qid] = common_ent_counts
+
+                common_ent_counts = pd.DataFrame.from_dict(common_ent_count_d, orient='index').reset_index().rename(
+                    columns={'index': 'id', 0: 'common_ent_counts'})
+
+                matches_df = matches_df.merge(common_ent_counts, on='id')
+
+                matches_df = matches_df.sort_values(by=['common_ent_counts', 'score', 'normalised_desc_len'],
+                                                    ascending=False).reset_index(drop=True)
+
+                n_candidates = 10
+                matches_df = matches_df.head(n_candidates)
+
+                candidates = matches_df['id'].map({candidate.entity_: candidate for candidate in candidates}).to_list()
+                matches_df = dict(zip(matches_df['id'], matches_df['score']))
+
                 if candidates:
                     options = []
                     # add in a few additional options in case a correct ID cannot be picked
@@ -173,7 +210,8 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                     options.append({"id": "NEL_NoCandidate", "text": "No viable candidate."})
 
                     options.extend([
-                        {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities_url)}
+                        {"id": c.entity_, "html": _print_info(c.entity_, id_dict, matches[c.alias_], kb_entities)}
+                        # _url)}
                         for c in candidates
                     ])
 
@@ -181,7 +219,8 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities_url):
                     task["config"] = {"choice_style": "multiple"}
                     yield task
 
-def shorten_description(descr, n_splits = 2, min_desc_len = 50, max_desc_len = 500):
+
+def shorten_description(descr, n_splits=2, min_desc_len=50, max_desc_len=500):
     # Keep description output len within min and max limits
     # This only affects the Prodigy UI text, not the original KB desc.
     short_descr = '. '.join(descr.split('. ')[:n_splits])
@@ -203,17 +242,20 @@ def shorten_description(descr, n_splits = 2, min_desc_len = 50, max_desc_len = 5
         short_descr += '.'
     return short_descr
 
-def _print_info(entity_id, id_dict, score, kb_entities_url):
+
+def _print_info(entity_id, id_dict, score, kb_entities):  # _url):
     """For each candidate QID, create a link to the corresponding Wikidata page and print the description"""
     name, descr = id_dict.get(entity_id)
     # score=round(score)
-    url = kb_entities_url.loc[kb_entities_url['id'] == str(entity_id), 'kb_url'].values[0]
+    # url = kb_entities_url.loc[kb_entities_url['id'] == str(entity_id), 'kb_url'].values[0]
+    url = kb_entities.loc[kb_entities['id'] == str(entity_id), 'kb_url'].values[0]
     # Tailor output description length
     short_descr = shorten_description(descr)
     # Prodigy option display text
     option = "<a class=\"entLink\" href='" + f'{url}' + "' target='_blank' onclick=\"clickMe(event)\">" + entity_id + "</a>"
     option += ": " + name + '; \n' + short_descr
     return option
+
 
 ### Not used in current iteration
 ### Here for further development
