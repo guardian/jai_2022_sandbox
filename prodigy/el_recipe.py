@@ -6,10 +6,8 @@ sample results are stored in assets/emerson_annotated_text.jsonl
 """
 
 import string
-from operator import itemgetter
 from pathlib import Path
-from typing import Iterator
-
+import re
 import nltk
 import pandas as pd
 import numpy as np
@@ -22,6 +20,51 @@ from prodigy.components.loaders import JSONL
 from prodigy.models.ner import EntityRecognizer
 from prodigy.util import set_hashes
 from spacy.kb import KnowledgeBase, Candidate
+
+
+# Utility functions
+def missing_quote_counts(test_string):
+    """Count number of instances where a paragraph ends before a quote is closed i.e. multi-paragraph quotes."""
+    mq_count = 0
+    quote_count = 0
+    open_flag = False
+    for i, char in enumerate(test_string):
+        if char == "\"" and open_flag is False:
+            quote_count += 1
+            open_flag = True
+
+        elif char == "\"" and open_flag is True:
+            quote_count += 1
+            open_flag = False
+        elif test_string[i:i + 4] == "</p>" and open_flag is True:
+            open_flag = False
+            mq_count += 1
+
+    return mq_count
+def standardise_quotes(eg, key='text'):
+    txt = eg[key]
+    # Remove duplicate single quotes
+    txt = re.sub(r"([\u2018]|[\u2019]|\'|`|‘|´|’){2}", "\\1", txt)
+    # Normalise double quotes
+    txt = re.sub(r"[\"”“〝〞]", "\"", txt)
+    txt = txt.replace(r'’', "'")
+    # Find missing quote marks from multi-paragraph quotes and correct them
+    loops_to_run = missing_quote_counts(txt)
+    quote_count = 0
+    for x in range(loops_to_run):
+        open_flag = False
+        for i, char in enumerate(txt):
+            if char == "\"" and open_flag is False:
+                quote_count += 1
+                open_flag = True
+            elif char == "\"" and open_flag is True:
+                quote_count += 1
+                open_flag = False
+            elif txt[i:i + 4] == "</p>" and open_flag is True:
+                txt = txt[:i] + "\"" + txt[i:]
+                break
+    eg[key] = txt
+    return eg
 
 
 @prodigy.recipe(
@@ -75,6 +118,7 @@ def entity_linker_manual(dataset, source, nlp_loc, kb_loc, entity_loc):
     ## Faster reading by using generators
     stream = JSONL(source)
     stream = (set_hashes(eg) for eg in stream)
+    stream = (standardise_quotes(eg) for eg in stream)
     stream = (eg for score, eg in model(stream))
 
     # For each NER mention, add the candidates from the KB to the annotation task as well as the url of the article
