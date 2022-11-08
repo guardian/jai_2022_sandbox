@@ -466,8 +466,6 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     websites=properties_df['website'].copy().dropna()
     websites=websites.apply(lambda x: ', '.join(x))
 
-    # properties_df.drop(more_cols_to_drop, 1, inplace=True)
-
     # Create sentences from topic memberships
     properties_df['topics'] = properties_df['topics'].fillna('').apply(
         lambda x: [f'Associated with {topics_translation_dict[key]}.' for key in x])
@@ -497,7 +495,7 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
 
     # Fix most common position abbreviations
     for abbv, full in positions_in_full.items():
-        properties_df['position'] = properties_df['position'].str.replace(abbv, full)
+        properties_df['position'] = properties_df['position'].str.replace(abbv, full, regex=False)
 
     # Convert country ISO alpha 2 codes into names [REFACTOR]
     properties_df['country'] = properties_df['country'].apply(convert_country_code)
@@ -521,24 +519,27 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
 
     # Clean notes???
     properties_df['notes'] = properties_df['notes'].fillna('').apply(lambda x: ' '.join(x))
-
     # Adapt sentences for people involved in crime
     matches = properties_df['notes'].str.contains("(" + "|".join(fr"\b{cr}\b" for cr in crime_vocab) + ")",
                                         regex=True, flags=re.IGNORECASE)
-    properties_df['notes'] = properties_df[matches]['notes'].str.lower().str.replace(default_expr, crime_expr)
+    properties_df[matches]['notes'] = properties_df[matches]['notes'].str.lower().str.replace(default_expr, crime_expr)
 
 
     # Trim data frame in preparation for output
     properties_df = properties_df[['notes', 'AKA', 'context', 'birthdate', 'deathdate']]
 
-    ## Dropped the nans, INDEX MISALIGNED!
-    properties_df=properties_df.merge(wikidataIDs,left_index=True, right_index=True)
-    properties_df=properties_df.merge(websites,left_index=True, right_index=True)
+    # Merge Wikipedia IDs and websites
+    properties_df=properties_df.merge(wikidataIDs, how='left', left_index=True, right_index=True)
+    properties_df=properties_df.merge(websites, how='left', left_index=True, right_index=True)
 
-    df = df.merge(properties_df, left_index=True, right_index=True)
+    df = df.merge(properties_df, how='left', left_index=True, right_index=True)
     df = df[df['schema'].str.upper().isin(output_only)]
     df = df.rename(columns={'caption': 'name'})
     df['full_notes'] = df['notes'].fillna('') + ' ' + df['context'].fillna('')
+
+    # Remove obsolete columns
+    df.drop(columns=['properties', 'referents', 'kb_origin'],
+            inplace=True)
 
     return df
 
