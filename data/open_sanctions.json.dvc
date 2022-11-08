@@ -1,0 +1,4 @@
+outs:
+- md5: c64a91e7a2731c38d8daa62ec7f5047f
+  size: 315295602
+  path: open_sanctions.json
