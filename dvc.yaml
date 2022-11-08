@@ -1,0 +1,8 @@
+stages:
+  preprocess_kb:
+    cmd: python src/kb_clean_merge_datasets.py data/open_sanctions.json data/lilsis.json
+    deps:
+    - data/open_sanctions.json
+    - src/kb_clean_merge_datasets.py
+    outs:
+    - data/kb_entities_full.csv
