@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+import logging
 from pathlib import Path
 from typing import List
 
@@ -173,255 +174,6 @@ def url_generator(id_,name, dataset):
     if dataset=='lilsis':
         return f'https://littlesis.org/person/{id_}-{name}'
 
-
-#
-# ## Pre-process individual kb dataset
-# # Select the intended kb dataset
-# #dataset='lilsis'
-# dataset='open_sanctions'# Read csv file
-# kb_entities=pd.read_csv(f'{dataset}_entities.csv',index_col=0)# Select only KB entries with a person entity
-# person_named_entities_name='Person'
-# person_named_entities_col_d={'open_sanctions':'schema', 'lilsis':'primary_ext'}
-# kb_entities=kb_entities[
-#     kb_entities[
-#         person_named_entities_col_d[dataset]]==person_named_entities_name
-# ]# Change column names
-# desc_col_d={'open_sanctions':'full_notes', 'lilsis':'context'}
-# desc_col=desc_col_d[dataset]
-# kb_entities=kb_entities.rename(columns={desc_col:'desc'})# Drop entities without a description
-# kb_entities.dropna(subset=['desc'],inplace=True)# Reorder columns
-# if dataset!='open_sanctions':
-#     kb_entities=kb_entities.rename(columns={'aliases':'AKA'})
-# kb_entities=kb_entities[['id','name','desc', 'AKA']]# Remove cyrillic
-# cyrillic = "вгдеёзийклмнопрстуфхъыьэАБВГДЕЁЗИЙКЛМНОПРСТУФХЪЫЬЭ"
-# for i,symbol in enumerate(cyrillic):
-#     cyrillic_condition=(kb_entities['name'].str.contains(symbol))
-#     if i==0:
-#         cyrillic_df=kb_entities[cyrillic_condition]
-#     else:
-#         cyrillic_df=cyrillic_df.append(kb_entities[cyrillic_condition])
-#         cyrillic_df=cyrillic_df.drop_duplicates()
-# kb_entities=kb_entities.drop(cyrillic_df.index)kb_entities.to_csv(f'../kb_datasets/kb_entities_{dataset}.csv')
-#
-# # Read both datasets
-# os_kb_entities=pd.read_csv(f'kb_entities_open_sanctions.csv',index_col=0)
-# os_kb_entities['kb_origin']='open_sanctions'
-# ls_kb_entities=pd.read_csv(f'kb_entities_lilsis.csv',index_col=0)
-# ls_kb_entities['kb_origin']='lilsis'
-#
-#
-# # In[17]:
-#
-#
-# # Combine datasets into one
-# kb_entities=pd.concat([os_kb_entities,ls_kb_entities]).reset_index().rename(columns={'index':'original_index'})
-#
-#
-# # In[18]:
-#
-#
-# kb_entities.shape
-#
-#
-# # In[19]:
-#
-#
-# kb_entities.head(2)
-#
-#
-# # In[20]:
-#
-#
-# ## Resolve duplicate entitiy IDs
-#
-#
-# # In[21]:
-#
-#
-# # Find duplicate entries on the 'id' columns
-# redudant_entities_by_id=kb_entities[kb_entities['id'].duplicated(keep=False)].sort_values(['id','name'])
-#
-#
-# # In[22]:
-#
-#
-# # Drop duplicate_entities (these were all cases where the ID was taken from Wikidata)
-# redudant_entities_indices=redudant_entities_by_id.index
-# kb_entities.drop(redudant_entities_indices, inplace=True)
-#
-#
-# # In[23]:
-#
-#
-# # Combine desc across duplicated entities
-# redudant_entities_by_id_consolidated_desc=redudant_entities_by_id[['id','desc']].groupby(['id'])['desc'].apply(lambda x: ' '.join(x)).reset_index()
-#
-#
-# # In[24]:
-#
-#
-# # Drop all duplicated apart from the first (needs to be sorted by [id, name])
-# redudant_entities_by_id.drop_duplicates(subset=['id'],keep='first',inplace=True)
-#
-#
-# # In[25]:
-#
-#
-# # Concatenate back to kb entity dataframe
-# kb_entities=pd.concat([kb_entities,redudant_entities_by_id])
-#
-#
-# # In[26]:
-#
-#
-# # Cast names in lower case
-# kb_entities['name']=kb_entities['name'].str.lower()
-#
-#
-# # In[27]:
-#
-#
-# # Drop duplicates on name and desc
-# kb_entities.drop_duplicates(['name','desc'],inplace=True)
-#
-#
-# # In[28]:
-#
-#
-# ## Clean up data
-#
-# # Remove titles
-# kb_entities['name']=kb_entities['name'].str.split('\. ').apply(lambda x: ' '.join([s for s in x if len(s)>3]))kb_entities['first_name']=kb_entities['name'].apply(lambda r: r.split(' ')[0])kb_entities['last_name']=kb_entities['name'].apply(lambda r: r.split(' ')[-1])kb_entities[kb_entities.duplicated(subset=['first_name','last_name','desc'], keep=False)].sort_values(by=['first_name','last_name']).to_csv('duplicate_entities_on_first_and_last_names.csv')
-# # In[29]:
-#
-#
-# # Remove special characters (cyrillic, chinese, japanese, arabic, numbers)
-#
-# # Remove cyrillic from descriptions
-# cyrillic = "вгдеёзийклмнопрстуфхъыьэАБВГДЕЁЗИЙКЛМНОПРСТУФХЪЫЬЭжцчщюяєії"
-# for symbol in cyrillic:
-#     kb_entities['desc']=kb_entities['desc'].str.replace(symbol,'')# Get all special characters from description column
-# special_characters=set()
-# for row in kb_entities.iterrows():
-#     special_characters.update(
-#         set(filter(lambda ele: re.search("[a-zA-Z\s]+", ele) is None, row[1][3])
-#            )
-#     )# Get set of all unique words in description column
-# vocab=set()
-# for row in kb_entities.iterrows():
-#     vocab.update(
-#         set(row[1][3].split(' ')
-#            )
-#     )clean_vocab=set()
-# for word in vocab:
-#     clean_word=word
-#     for character in special_characters:
-#         clean_word=clean_word.replace(character,'')
-#     clean_vocab.add(clean_word)pd.DataFrame(clean_vocab,columns=['vocab']).to_csv('clean_vocab.csv')
-# # In[30]:
-#
-#
-# clean_vocab=pd.read_csv('clean_vocab.csv',index_col=0)
-# clean_vocab=set(clean_vocab['vocab'])
-#
-#
-# # In[31]:
-#
-#
-# kb_entities['desc']=kb_entities['desc'].apply(lambda x: ' '.join([word for word in x.split(' ') if word in clean_vocab]))
-#
-#
-# # In[32]:
-#
-#
-# kb_entities
-#
-#
-# # In[33]:
-#
-#
-# ## Resolve non-id ambiguities
-#
-# kb_entities.loc[kb_entities['name'].duplicated(keep=False),'name'].value_counts()import spacy
-# nlp = spacy.load("en_core_web_lg")from numpy import dot
-# from numpy.linalg import norm
-# def calculate_cosine_similarity(descriptions_vec,vector_ref_sentence):
-#     """
-#     Return a dictionary mapping the kb entity id to cosine similarity score
-#     between kb embedded descriptions and the reference vector.
-#     """
-#
-#     score=np.nan_to_num(
-#         dot(vector_ref_sentence, descriptions_vec)/
-#         (norm(vector_ref_sentence)*norm(descriptions_vec))
-#     ,0)
-#     return scorekb_entities['desc_enc']=kb_entities['desc'].apply(lambda x: nlp(x).vector)kb_entities.to_csv('kb_entities_full.csv')kb_entities[kb_entities.duplicated(subset=['last_name'], keep=False)].sort_values(by=['last_name','name']).to_csv('duplicates_by_last_name.csv')for i,name in enumerate(kb_entities['name'].unique()):
-#     df=kb_entities[kb_entities['name']==name]
-#     df=df[['name','id','desc','desc_enc']]
-#     df=df.merge(df, on='name', suffixes=['_1','_2'])
-#     df['similarity_score']=df.apply(
-#         lambda x: calculate_cosine_similarity(x['desc_enc_1'],x['desc_enc_2']),
-#             1
-#         )
-#     df=df[df['similarity_score']>0]
-#     if i==0:
-#         similarity_df=df[['id_1','id_2','similarity_score']]
-#     else:
-#         similarity_df=pd.concat([similarity_df, df[['id_1','id_2','similarity_score']]])
-#
-# similarity_df=similarity_df[(similarity_df['id_1']!=similarity_df['id_2'])]# The merging the ids agains themselves creates deplicates based on order
-# # (id 1, id 2 or id 2, id 1 doesn't matter, just the pairing of the set)
-# # This code removes redudant rows
-# similarity_df['id_1']=similarity_df['id_1'].astype(str)
-# similarity_df['id_2']=similarity_df['id_2'].astype(str)
-# similarity_df['id_pair']=similarity_df.apply(lambda x: ' '.join(set([x['id_1'],x['id_2']])),1)
-# similarity_df=similarity_df.drop_duplicates('id_pair',keep='first')# Fetch the context for each id
-# similarity_df=similarity_df.merge(kb_entities[['name','id','desc']], how='left',left_on='id_1', right_on='id')
-# similarity_df.drop('id',1,inplace=True)
-# similarity_df=similarity_df.rename(columns={'name':'name_1','desc':'desc_1'})
-# similarity_df=similarity_df.merge(kb_entities[['name','id','desc']], how='left',left_on='id_2', right_on='id')
-# similarity_df.drop('id',1,inplace=True)
-# similarity_df=similarity_df.rename(columns={'name':'name_2','desc':'desc_2'})similarity_df.to_csv('similarity_df.csv')
-# # In[34]:
-#
-#
-# ## Add KB URLs
-#
-#
-# # In[35]:
-#
-#
-#
-#
-#
-# # In[36]:
-#
-#
-# kb_entities['kb_url']=kb_entities.apply(
-#     lambda x: [url_generator(x['id'],x['name'], 'open_sanctions')
-#                              if x['kb_origin']=='open_sanctions'
-#                              else url_generator(x['id'],x['name'], 'lilsis')
-#                                                   ][0],1
-# )
-#
-#
-# # In[43]:
-#
-#
-# kb_entities[kb_entities['desc'].isna()]
-#
-#
-# # In[40]:
-#
-#
-# kb_entities[kb_entities.duplicated(keep=False,subset=['name'])].sort_values(by=['name']).to_csv(f'duplicate_full_name_aliases.csv')
-#
-#
-# # In[44]:
-#
-#
-# kb_entities.to_csv('kb_entities_full.csv')
-################################################################
 def remove_columns(df, cols):
     """ Drop specific columns from data frame."""
     return df.drop(cols, axis=1)
@@ -520,7 +272,7 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     # Clean notes???
     properties_df['notes'] = properties_df['notes'].fillna('').apply(lambda x: ' '.join(x))
     # Adapt sentences for people involved in crime
-    matches = properties_df['notes'].str.contains("(" + "|".join(fr"\b{cr}\b" for cr in crime_vocab) + ")",
+    matches = properties_df['notes'].str.contains("(?:" + "|".join(fr"\b{cr}\b" for cr in crime_vocab) + ")",
                                         regex=True, flags=re.IGNORECASE)
     properties_df[matches]['notes'] = properties_df[matches]['notes'].str.lower().str.replace(default_expr, crime_expr)
 
@@ -538,42 +290,197 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     df['full_notes'] = df['notes'].fillna('') + ' ' + df['context'].fillna('')
 
     # Remove obsolete columns
-    df.drop(columns=['properties', 'referents', 'kb_origin'],
+    df.drop(columns=['properties', 'referents'],
             inplace=True)
 
     return df
 
+def preprocess_lilsis(df, output_only=["PERSON"]):
 
+    # Get attributes for each entity and only work with entity types requested
+    attributes_df = pd.DataFrame.from_dict(df['attributes'].tolist())
+    attributes_df = attributes_df[attributes_df['primary_ext'].str.upper().isin(output_only)]
+
+    # Generate description
+    attributes_df['blurb'] = attributes_df['name'] + ' is a ' + attributes_df['blurb'] + '.'
+
+    # Transform 'start date' as birth date in sentence
+    attributes_df.loc[~attributes_df['start_date'].isnull(), 'start_date_sentence'] = attributes_df.loc[
+        ~attributes_df['start_date'].isnull(), 'start_date'].apply(lambda x: f'This person was born in {x}.')
+
+    # Transform 'end date' as death date into sentence
+    attributes_df.loc[~attributes_df['end_date'].isnull(), 'end_date_sentence'] = attributes_df.loc[~attributes_df['end_date'].isnull(), 'end_date'].apply(
+        lambda x: f'This person died in {x}.')
+
+    # Transform types into sentence
+    attributes_df['types'] = attributes_df['types'].apply(lambda x: ' '.join(x)).str.replace('Person', '')
+    attributes_df['types'] = attributes_df['types'].str.replace(' ', ', ').apply(
+        lambda x: 'This person is associated with: ' + x[1:] + '.')
+    # Fix typos
+    attributes_df['types'] = attributes_df['types'].str.replace(', ,', ',', regex=False).str.replace(', \.', '.', regex=False).str.replace('Media, ality',
+                                                                                               'Media Personality', regex=False)
+    # Remove sentences without context
+    attributes_df.loc[attributes_df['types'] == 'This person is associated with: .', 'types'] = ''
+
+    # Create context
+    attributes_df['context'] = attributes_df['blurb'].fillna('') + ' ' + attributes_df['summary'].fillna('')
+    attributes_df['context'] = attributes_df['context'].str.replace('\r', '').str.replace('\n', '')
+
+    attributes_df.drop(['blurb', 'summary', 'updated_at', 'parent_id'], axis=1, inplace=True)
+
+    attributes_df['extensions'] = attributes_df['extensions'].apply(lambda r: [r[key] for key in r.keys()])
+    # unique_extension_keys_extension_keys = []
+    # df = attributes_df['extensions'].apply(lambda r: list(combine_dictionaries(r).keys()))
+    # for row in df:
+    #     unique_extension_keys_extension_keys.extend(row)
+    # del (df)
+
+    # Add birthplace information and generate sentence
+    valid_indices = attributes_df[attributes_df['extensions'].apply(lambda x: len(x)) > 0].index.values
+    attributes_df.loc[valid_indices, 'birthplace'] = \
+        attributes_df.loc[valid_indices, 'extensions'].apply(
+        lambda x: [x[0]['birthplace'] if 'birthplace' in x[0] else None][0])
+
+    attributes_df.loc[~attributes_df['birthplace'].isnull(), 'birthplace'] = \
+        attributes_df.loc[~attributes_df['birthplace'].isnull(), 'birthplace'].apply(
+        lambda x: f'This person was born in {x}.')
+
+    # Add extra context
+    extra_context_cols = ['start_date_sentence', 'end_date_sentence', 'types', 'birthplace']
+    for col in extra_context_cols:
+        attributes_df['context'] = attributes_df['context'] + ' ' + attributes_df[col].fillna('')
+
+    # Remove obsolete columns
+    attributes_df.drop(columns=["extensions"], inplace=True)
+
+    # Preserve dataset information
+    attributes_df['kb_origin'] = df['kb_origin']
+
+    return attributes_df
+
+def rename_columns(df, dataset):
+    """ Standardise name of data frame."""
+    desc_col = {'open_sanctions':'full_notes', 'lilsis':'context'}
+    df = df.rename(columns={desc_col[dataset]: 'desc'})
+    return df
+
+def read_data(path, dataset_name_):
+    """ Read in data and return dataframe"""
+    if dataset_name_ == 'open_sanctions':
+        df = pd.read_json(path, lines=True)
+    elif dataset_name_ == 'lilsis':
+        df = pd.read_json(path)
+    else:
+        raise NotImplementedError("Unknow dataset, cannot load.")
+    logging.info(f"Read {df.shape[0]} lines and {df.shape[1]} columns.")
+    return df
 
 def main(input_files: List[Path], output_file: Path, verbose: bool = False):
     # Read in datasets
     inputs = []
     for inp in input_files:
-        tmp = pd.read_json(inp, lines=True)
         dataset_name = Path(inp).stem
-        tmp['kb_origin'] = dataset_name
+        input_df = read_data(inp, dataset_name)
+        input_df['kb_origin'] = dataset_name
 
         # Pre-process depending on dataset
         exclude_columns = {
             "open_sanctions": ['target', 'first_seen', 'last_seen', 'datasets'],
             "lilsis": []
         }
-        tmp = remove_columns(tmp, exclude_columns[dataset_name])
+        input_df = remove_columns(input_df, exclude_columns[dataset_name])
         if dataset_name == 'open_sanctions':
-            tmp = preprocess_open_sanctions(tmp)
+            input_df = preprocess_open_sanctions(input_df)
+            input_df = rename_columns(input_df, dataset_name)
         elif dataset_name == 'lilsis':
-            continue
+            input_df = preprocess_lilsis(input_df)
+            input_df = rename_columns(input_df, dataset_name)
         else:
             raise NotImplementedError("Unknown dataset, no processing defined")
 
         # Add processed dataset to input list
-        inputs.append(tmp)
+        inputs.append(input_df)
 
     # Combine datasets into one
     kb_entities = pd.concat(inputs).reset_index().rename(columns={'index': 'original_index'})
 
+    # Drop useless columns
+    kb_entities.drop(['schema', 'notes', 'context', 'types', 'start_date_sentence', 'end_date_sentence'], axis=1,
+                     inplace=True)
+
+    # Fix trailing whitespaces
+    kb_entities['desc'] = kb_entities['desc'].apply(lambda x: re.sub(r"\b(\.)[\.\s]+$", "\\1", x))
+
+    # Remove entities with no description
+    kb_entities = kb_entities[kb_entities['desc'].str.replace(' ', '').apply(len) > 0]
+
+    # Drop duplicated based on same name and description
+    kb_entities.drop_duplicates(subset=['name', 'desc'], inplace=True)
+
+    # Find duplicate entries on the 'id' column and concatenate their descriptions
+    duplicate_entities_by_id = kb_entities[kb_entities['id'].duplicated(keep=False)].sort_values(['id', 'name'])
+    duplicate_entities_by_id = duplicate_entities_by_id[['id', 'desc']].groupby(
+        ['id'])['desc'].apply(lambda x: ' '.join(x)).reset_index()
+
+    # Remove those duplicates from dataset and replace them with concatenated description data
+    kb_entities.drop(duplicate_entities_by_id.index, inplace=True)
+    duplicate_entities_by_id = duplicate_entities_by_id[duplicate_entities_by_id['id'].duplicated(keep=False)]
+    kb_entities = pd.concat([kb_entities, duplicate_entities_by_id])
+
+    ###CODE BELOW NEEDS REFACTOR
+    # Create auxiliary column for ordering based on len of desc field
+    kb_entities['desc_len'] = kb_entities['desc'].str.len()
+
+    redundancy_cols = ['birthdate', 'deathdate', 'website']
+    for col in redundancy_cols:
+        # Find duplicates ordered by description len
+        redundant_entities_by_col = kb_entities[~(kb_entities[col].isna()) &
+                                                (kb_entities.duplicated(['name', col], keep=False))
+                                                ].sort_values(by=['name', 'desc_len'], ascending=False)
+
+        # Drop duplicate_entities on name and birthdate
+        redundant_entities_indices = redundant_entities_by_col.index
+        kb_entities.drop(redundant_entities_indices, inplace=True)
+
+        # Keep first of duplicated entities
+        redundant_entities_by_col_consolidated_desc = redundant_entities_by_col.groupby(
+            ['name', col]).first().reset_index()
+
+        # Concatenate back to kb entity dataframe
+        kb_entities = pd.concat([kb_entities, redundant_entities_by_col_consolidated_desc])
+        kb_entities.reset_index(drop=True, inplace=True)
+
+
+    # Ensure person name is included in all descriptions
+    name_not_in_notes_indices = kb_entities[
+        kb_entities.apply(lambda x: x['name'].lower() not in x['desc'].lower(), axis=1)].index.values
+    naming_string = 'This person is called '
+    kb_entities.loc[name_not_in_notes_indices, 'desc'] = kb_entities.loc[name_not_in_notes_indices].apply(
+        lambda x: naming_string + x['name'] + '. ' + x['desc'], axis=1)
+
+    # Ensure descriptions end in stop mark.
+    kb_entities.loc[~kb_entities['desc'].isna(), 'desc'] = \
+        kb_entities.loc[~kb_entities['desc'].isna(), 'desc'].apply(
+        lambda x: x + '.' if x[-1] != '.' else x)
+
+    # Clean up data by removing multiple trailing stop marks
+    multi_stopmarks_expr = re.compile('\.\s?\.')
+
+    for expr in [multi_stopmarks_expr]:
+        # Replace expression in string
+        kb_entities.loc[~kb_entities['desc'].isna(), 'desc'] = kb_entities.loc[
+            ~kb_entities['desc'].isna(), 'desc'].apply(lambda x: ''.join([re.sub(expr, '. ', x)]))
+
+    # Add KB urls
+    kb_entities['kb_url'] = kb_entities[['id', 'name', 'kb_origin']].apply(
+        lambda x: url_generator(*x), axis=1
+    )
+
     # Output dataset
     kb_entities.to_csv(output_file)
+
+
+
 
 if __name__ == '__main__':
     import argparse
