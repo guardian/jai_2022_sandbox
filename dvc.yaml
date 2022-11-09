@@ -7,18 +7,24 @@ stages:
     outs:
     - data/kb_entities_full.csv
   make_kb:
-    cmd: python make_kb.py
+    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb -e
     deps:
       - data/kb_entities_full.csv
       - src/make_kb.py
     outs:
       - data/kb
+  make_nlp:
+    cmd: python make_nlp.py
+    deps:
+      - src/make_nlp.py
+    outs:
+      - data/nlp
   prepare:
-    cmd: python src/prepare_training.py data/el_session1.json data/el_session2.json -o data/el -n en_core_web_lg
+    cmd: python src/prepare_training.py data/el_session_1.jsonl data/el_session_2.jsonl -o data/el -n en_core_web_lg
     deps:
       - src/prepare_training.py
-      - data/el_session1.json
-      - data/el_session2.json
+      - data/el_session_1.jsonl
+      - data/el_session_2.jsonl
     outs:
       - data/el_train.spacy
       - data/el_test.spacy

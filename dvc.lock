@@ -1,0 +1,49 @@
+schema: '2.0'
+stages:
+  preprocess_kb:
+    cmd: python src/kb_clean_merge_datasets.py data/open_sanctions.json data/lilsis.json
+    deps:
+    - path: data/open_sanctions.json
+      md5: c64a91e7a2731c38d8daa62ec7f5047f
+      size: 315295602
+    - path: src/kb_clean_merge_datasets.py
+      md5: 47cbadeca4fc9466a4190aaf3d8f1bef
+      size: 20645
+    outs:
+    - path: data/kb_entities_full.csv
+      md5: 742b6a0fb466da00455985db350c4ad9
+      size: 187712649
+  make_kb:
+    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb -e
+    deps:
+    - path: data/kb_entities_full.csv
+      md5: 742b6a0fb466da00455985db350c4ad9
+      size: 187712649
+    - path: src/make_kb.py
+      md5: 5cf9c858a33921d8f7706e7ebdd1a15d
+      size: 3321
+    outs:
+    - path: data/kb
+      md5: 004b79cdd830e410214059b486b010cf.dir
+      size: 174672306
+      nfiles: 2
+  prepare:
+    cmd: python src/prepare_training.py data/el_session_1.jsonl data/el_session_2.jsonl
+      -o data/el -n en_core_web_lg
+    deps:
+    - path: data/el_session_1.jsonl
+      md5: 4f1e0d79b44f0bd3ddaabae7593350b0
+      size: 10167346
+    - path: data/el_session_2.jsonl
+      md5: c548fd593816cad4039b2c355b31b2d6
+      size: 6666006
+    - path: src/prepare_training.py
+      md5: 11ecf3166388ce338200cfe8bc7f7a79
+      size: 3615
+    outs:
+    - path: data/el_test.spacy
+      md5: 8b333a8fccb14b96658e1d5b15acd6f4
+      size: 331371
+    - path: data/el_train.spacy
+      md5: d4d099cfbe6893ae3fa8f0a0d80b3ada
+      size: 492760
