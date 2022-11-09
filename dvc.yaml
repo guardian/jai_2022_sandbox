@@ -6,3 +6,30 @@ stages:
     - src/kb_clean_merge_datasets.py
     outs:
     - data/kb_entities_full.csv
+  make_kb:
+    cmd: python make_kb.py
+    deps:
+      - data/kb_entities_full.csv
+      - src/make_kb.py
+    outs:
+      - data/kb
+  prepare:
+    cmd: python src/prepare_training.py data/el_session1.json data/el_session2.json -o data/el -n en_core_web_lg
+    deps:
+      - src/prepare_training.py
+      - data/el_session1.json
+      - data/el_session2.json
+    outs:
+      - data/el_train.spacy
+      - data/el_test.spacy
+  train:
+    cmd: python -m spacy train configs/nel.cfg --paths.train data/el_train.spacy --paths.dev data/el_test.spacy --paths.kb data/kb --paths.base_nlp data/nlp --output en-gu-el-1.0
+    deps:
+      - src/scripts/custom_functions.py
+      - src/configs/nel.cfg
+      - data/el_train.spacy
+      - data/el_test.spacy
+      - data/kb
+      - data/nlp
+    outs:
+      - en-gu-el-1.0/
