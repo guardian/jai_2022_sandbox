@@ -484,7 +484,7 @@ def main(input_files: List[Path], output_file: Path, verbose: bool = False):
 
 if __name__ == '__main__':
     import argparse
-    input_files, output_file = None, None
+    output_file, nlp_model = None, None
     verbose = False
 
     parser = argparse.ArgumentParser(
@@ -493,7 +493,9 @@ if __name__ == '__main__':
         )
     parser.add_argument("input_files", nargs='+', default=["data/open_sanctions.json", "data/lilsis.json"])
     parser.add_argument('-o', '--out', action="store_const", const=output_file, help="Name of output file.",
-                        default="kb_entities_full.csv")  # option that takes a value
+                        default="data/kb_entities_full.csv")
+    parser.add_argument('-n', '--nlp', action="store_const", const=nlp_model, help="Name of the Spacy model",
+                        default="en_core_web_lg")
     parser.add_argument('-v', '--verbose', action='store_true')
 
     args = parser.parse_args()
