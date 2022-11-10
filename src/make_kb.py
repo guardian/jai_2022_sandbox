@@ -21,16 +21,20 @@ def load_entities(kb_data):
 
 
 def get_embedding_dim(nlp):
-    if "tok2vec" in nlp.config["components"]:
-        return nlp.config["components"]["tok2vec"]["model"]["encode"]["width"]
-    else:
-        raise NotImplementedError("Implement transformer embeddimg width code")
+    vec = nlp("Hello").vector
+    return vec.shape[0]
 
 
-def main(input_file, output_file, nlp_model, empty=True):
+def main(input_file, output_file, nlp_model, empty=True, subset=None):
 
     # Load data and model
     data = pd.read_csv(input_file, index_col=0)
+
+    ## Only use a subset of entities?
+    if subset is not None:
+        subset = [_.strip() for _ in subset[0].split(",")]
+        data = data[data["name"].isin(subset)]
+
     kb_data = data[["id", "name", "desc"]]
     name_dict, desc_dict = load_entities(kb_data)
 
@@ -50,7 +54,6 @@ def main(input_file, output_file, nlp_model, empty=True):
     kb = KnowledgeBase(vocab=nlp.vocab, entity_vector_length=embedding_dims)
 
     ## Add ents to KB
-    descriptions_enc = dict()
     if empty:
         for qid, desc in desc_dict.items():
             desc_enc = np.zeros(embedding_dims)
@@ -61,10 +64,13 @@ def main(input_file, output_file, nlp_model, empty=True):
         descriptions = desc_dict.values()
         qids = desc_dict.keys()
         for qid, desc_doc in zip(qids, nlp.pipe(descriptions)):
+            import pdb
+
+            pdb.set_trace()
             desc_enc = desc_doc.vector
-        kb.add_entity(
-            entity=qid, entity_vector=desc_enc, freq=342
-        )  # 342 is an arbitrary value here
+            kb.add_entity(
+                entity=qid, entity_vector=desc_enc, freq=342
+            )  # 342 is an arbitrary value here
 
     for qid, name in name_dict.items():
         if name not in alias_dict.keys():
@@ -80,6 +86,8 @@ def main(input_file, output_file, nlp_model, empty=True):
             alias=alias_, entities=qids, probabilities=probs
         )  # sum([probs]) should be <= 1 !
 
+    if subset is not None:
+        print(f"IDS in KB: {kb.get_entity_strings()}")
     # Save file
     kb.to_disk(output_file)
 
@@ -95,7 +103,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("input_files", default=["data/kb_entities_full.csv"])
     parser.add_argument(
-        "-o", "--out", nargs="?", help="Name of output file.", default="kb"
+        "-o", "--out", nargs="?", help="Name of output file.", default="data/kb"
+    )
+    parser.add_argument(
+        "-s",
+        "--subset",
+        nargs="+",
+        help="Subset of entities (comma-seperated and in QUOTES) to be used",
     )
     parser.add_argument(
         "-n",
@@ -110,4 +124,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args.input_files, args.out, args.nlp, args.empty)
+    main(args.input_files, args.out, args.nlp, args.empty, args.subset)

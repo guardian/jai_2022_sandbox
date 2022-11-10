@@ -14,7 +14,7 @@ def find_best_candidate(row):
         for candidate in list(filter(lambda x: option_id == x["id"], row["options"])):
             candidate_len = len(candidate["html"].split("a>:")[1])
             best_candidate_d[option_id] = candidate_len
-    return [max(best_candidate_d, key=best_candidate_d.get)]
+    return max(best_candidate_d, key=best_candidate_d.get)
 
 
 def clean_data(df):
@@ -28,10 +28,8 @@ def make_doc(example, nlp):
     """Make spacy document from prodigy example (dict)"""
     sentence = example["text"]
     gold_ids = []
-    # import pdb
-    # pdb.set_trace()
     if example["answer"] == "accept":
-        QID = example["accept"][0]
+        QID = example["accept"]
         doc = nlp.make_doc(sentence)
         gold_ids.append(QID)
         # we assume only 1 annotated span per sentence, and only 1 KB ID per span
@@ -47,7 +45,7 @@ def make_doc(example, nlp):
         return doc
 
 
-def main(input_files, out_stem, nlp_model="en_core_web_lg", verbose=False):
+def main(input_files, out_stem, nlp_model="en_core_web_lg", subset=None, verbose=False):
     inputs = [pandas.read_json(inp, lines=True) for inp in input_files]
     df = pandas.concat(inputs)
 
@@ -57,6 +55,11 @@ def main(input_files, out_stem, nlp_model="en_core_web_lg", verbose=False):
     # Surface only one (the best candidate)
     df["accept"] = df.apply(find_best_candidate, axis=1)
 
+    ## Only use a subset of entities?
+    if subset is not None:
+        subset = [_.strip() for _ in subset[0].split(",")]
+        df = df[df["accept"].isin(subset)]
+
     # Split datasets and ensure no paragraph is split between train and dev
     index_train, index_test = train_test_split(
         df["_input_hash"].unique(), test_size=0.4, random_state=14
@@ -64,7 +67,7 @@ def main(input_files, out_stem, nlp_model="en_core_web_lg", verbose=False):
 
     df_train = df[df["_input_hash"].isin(index_train)]
     df_test = df[df["_input_hash"].isin(index_test)]
-
+    print(f"Size of datasets: Train ({df_train.shape[0]}), Dev ({df_test.shape[0]})")
     # Make docs
     nlp = spacy.load(nlp_model, exclude="parser, tagger")
     train_docs = df_train.apply(make_doc, args=(nlp,), axis=1)
@@ -115,7 +118,14 @@ if __name__ == "__main__":
         help="Name of the Spacy model",
         default="en_core_web_lg",
     )
+    parser.add_argument(
+        "-s",
+        "--subset",
+        nargs="+",
+        help='Subset of entity IDS (comma-seperated and in QUOTES) to be used.\n Example: "Q22686, Q180589, 15108, 67986, Q272201, 13191"',
+    )
+
     parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
-    main(args.input_files, args.out, args.nlp, args.verbose)
+    main(args.input_files, args.out, args.nlp, args.subset, args.verbose)
