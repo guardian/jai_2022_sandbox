@@ -22,7 +22,7 @@
 
 Annotation data is gathered on a cloud server that runs Prodigy in order to allow different annotators to connect to and annotate the same dataset.
 
-In order to backup and track changes to this dataset, we followed this [forum post](https://support.prodi.gy/t/prodigy-and-dvc-data-version-control/3390)
+In order to back up and track changes to this dataset, we followed this [forum post](https://support.prodi.gy/t/prodigy-and-dvc-data-version-control/3390)
 and created a `cron` job that regularly outputs the dataset and commits it to DVC.
 
 ```crontab
