@@ -2,8 +2,10 @@ from functools import partial
 from pathlib import Path
 from typing import Iterable, Callable
 import spacy
+from spacy.kb import Candidate, KnowledgeBase
 from spacy.training import Example
 from spacy.tokens import DocBin
+from src.scripts.candidates import get_custom_candidates
 
 
 @spacy.registry.readers("MyCorpus.v1")
@@ -19,3 +21,8 @@ def read_files(file: Path, nlp: "Language") -> Iterable[Example]:
         docs = doc_bin.get_docs(nlp.vocab)
         for doc in docs:
             yield Example(nlp(doc.text), doc)
+
+
+@spacy.registry.misc("gu.CandidateGenerator.v1")
+def get_candidates() -> Callable[[KnowledgeBase, "Span"], Iterable[Candidate]]:
+    return get_custom_candidates
