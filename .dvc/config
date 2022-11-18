@@ -2,5 +2,3 @@
     analytics = false
     autostage = true
     remote = storage
-['remote "storage"']
-    url = s3://jai-dvc-test/
