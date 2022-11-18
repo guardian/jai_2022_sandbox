@@ -2,7 +2,6 @@ from typing import Iterator
 from spacy.kb import KnowledgeBase, Candidate
 import pdb
 
-@profile
 def get_custom_candidates(kb: KnowledgeBase, span) -> Iterator[Candidate]:
     """
     Return candidate entities for a given span by using the text of the span as the alias
@@ -17,10 +16,6 @@ def get_custom_candidates(kb: KnowledgeBase, span) -> Iterator[Candidate]:
         # Only have a single name in span (assuming it's a surname),
         # get other variations of names in the KB that partially match the span text
         other_options = filter(lambda ent: span.text in ent, kb.get_alias_strings())
-        other_candidates = tuple(tuple(kb.get_alias_candidates(option)) for option in other_options)
-        pdb.set_trace()
-        # for option in other_options:
-        #     candidates.extend(kb.get_alias_candidates(option))
-        # pdb.set_trace()
-        return candidates + list(other_candidates)
+        other_candidates = tuple(kb.get_alias_candidates(option) for option in other_options)
+        return candidates + sum(other_candidates, [])
     return candidates
