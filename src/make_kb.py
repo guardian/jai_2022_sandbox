@@ -75,13 +75,14 @@ def main(input_file, output_file, nlp_model, empty=True, subset=None):
     for qid, name in name_dict.items():
         if name not in alias_dict.keys():
             kb.add_alias(
-                alias=str(name), entities=[str(qid)], probabilities=[1]
+                alias=str(name), entities=[str(qid)], probabilities=[0.001] # Use a small prior probability to avoid biasing
             )  # 100% prior probability P(entity|alias)
 
     ### REFACTOR?
     for alias_ in alias_dict.keys():
         qids = alias_dict[alias_]
-        probs = [round(1 / len(qids), 2) - 0.01 for qid in qids]
+        # probs = [round(1 / len(qids), 2) - 0.01 for qid in qids]
+        probs = [0.001 for _ in qids] # Set all priors to the same small probability
         kb.add_alias(
             alias=alias_, entities=qids, probabilities=probs
         )  # sum([probs]) should be <= 1 !
@@ -90,6 +91,7 @@ def main(input_file, output_file, nlp_model, empty=True, subset=None):
         print(f"IDS in KB: {kb.get_entity_strings()}")
     # Save file
     kb.to_disk(output_file)
+    print(f"Created Knowledge Base containing {kb.get_size_entities()} entities and {kb.get_size_aliases()} aliases.")
 
 
 if __name__ == "__main__":
