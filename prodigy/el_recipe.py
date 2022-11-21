@@ -184,6 +184,10 @@ def _add_options(stream, kb, nlp, id_dict, kb_entities):
             # Retrieve a wide list of candidates based on fuzzy string matching and similarity score
             candidates, matches = get_candidates_from_fuzzy_matching(span_text, kb, single_name)
 
+            if not matches:
+                # Prevent recipe from crashing due to empty text spans
+                continue
+
             # Convert candidate and scores to df
             matches_df = pd.DataFrame.from_dict(matches, orient='index').reset_index().rename(
                 columns={'index': 'name', 0: 'score'})
