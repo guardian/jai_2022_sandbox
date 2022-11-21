@@ -25,7 +25,7 @@ def get_embedding_dim(nlp):
     return vec.shape[0]
 
 
-def main(input_file, output_file, nlp_model, empty=True, subset=None):
+def main(input_file, output_file, nlp_model, empty=False, subset=None):
 
     # Load data and model
     data = pd.read_csv(input_file, index_col=0)
@@ -64,9 +64,6 @@ def main(input_file, output_file, nlp_model, empty=True, subset=None):
         descriptions = desc_dict.values()
         qids = desc_dict.keys()
         for qid, desc_doc in zip(qids, nlp.pipe(descriptions)):
-            import pdb
-
-            pdb.set_trace()
             desc_enc = desc_doc.vector
             kb.add_entity(
                 entity=qid, entity_vector=desc_enc, freq=342
