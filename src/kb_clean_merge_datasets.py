@@ -170,6 +170,8 @@ crime_vocab = [
 default_expr = "is a "
 crime_expr = "was involved in "
 
+min_context_thres = 10
+
 # Utility functions
 def url_generator(id_, name, dataset):
     """Generate usable link for item in `dataset` from id (+name)"""
@@ -214,10 +216,8 @@ def convert_country_code(row):
 
 
 def preprocess_open_sanctions(df, output_only=["PERSON"]):
-    unique_keys = get_unique_properties(df["properties"])
     # Only keep entities with an entry on the name field
     df = df[df["properties"].apply(lambda x: "name" in x)]
-    # df = df.drop(['properties','referents'],axis=1)
 
     # Standardise lower and upper cases in the kb names
     df.loc[:, "caption"] = df["caption"].str.title()
@@ -229,12 +229,15 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     properties_df.drop(cols_to_drop, axis=1, inplace=True)
 
     # Create copy of wikidataIDs
-    wikidataIDs = properties_df["wikidataId"].copy().dropna()
-    wikidataIDs = wikidataIDs.apply(lambda x: ", ".join(x))
+    wikidataIDs = properties_df["wikidataId"].copy()
+    wikidataIDs[~wikidataIDs.isna()] = wikidataIDs[~wikidataIDs.isna()].apply(lambda x: ", ".join(x))
 
     # Create copy of websites
-    websites = properties_df["website"].copy().dropna()
-    websites = websites.apply(lambda x: ", ".join(x))
+    websites = properties_df["website"].copy()
+    websites[~websites.isna()] = websites[~websites.isna()].apply(lambda x: ", ".join(x))
+
+    # Drop unwanted columns
+    properties_df.drop(more_cols_to_drop, 1, inplace=True)
 
     # Create sentences from topic memberships
     properties_df["topics"] = (
@@ -281,7 +284,7 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     # Fix most common position abbreviations
     for abbv, full in positions_in_full.items():
         properties_df["position"] = properties_df["position"].str.replace(
-            abbv, full, regex=False
+            abbv, full, regex=True
         )
 
     # Convert country ISO alpha 2 codes into names [REFACTOR]
@@ -307,11 +310,17 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     # properties_df.drop(['name', 'alias', 'weakAlias'], 1, inplace=True)
 
     # Generate single context text column from selected properties (see constants)
-    properties_df["context"] = properties_df[context_cols].apply(
-        lambda row: ". ".join(r for r in row.dropna()), axis=1
-    )
+    i = 0
+    for col in context_cols:
+        if i == 0:
+            properties_df['context'] = properties_df[col].fillna('NAN')
+            i += 1
+        else:
+            properties_df['context'] = properties_df['context'] + properties_df[col].fillna('NAN')
+    properties_df['context'] = properties_df['context'].str.replace('NAN', '')
+    properties_df['context'] = properties_df['context'].str.split('.').apply(lambda x: '. '.join(x))
 
-    # Clean notes???
+    # Convert notes to string
     properties_df["notes"] = (
         properties_df["notes"].fillna("").apply(lambda x: " ".join(x))
     )
@@ -341,6 +350,22 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     df = df.merge(properties_df, how="left", left_index=True, right_index=True)
     df = df[df["schema"].str.upper().isin(output_only)]
     df = df.rename(columns={"caption": "name"})
+
+    # Remove useless context info
+    min_context_notes_indices = df[
+        df['notes'].fillna('').str.replace(' ', '').apply(len) < min_context_thres].index.values
+    df.loc[min_context_notes_indices, 'notes'] = ''
+    empty_notes_indices = df[df['notes'].str.replace(' ', '').str.len() == 0].index.values
+    name_in_notes_indices = df[df.apply(lambda x: x['name'].lower() in x['notes'].lower(), axis=1)].index.values
+    filled_notes_indices = df[df['notes'].str.replace(' ', '').str.len() >= min_context_thres].index.values
+    filled_notes_indices = set(filled_notes_indices).difference(set(name_in_notes_indices))
+    # Include name in description when context is null
+    df.loc[empty_notes_indices, 'notes'] = df.loc[empty_notes_indices, 'name'].apply(
+        lambda x: f'This person is called {x}.')
+    # Include name in description when context is not null
+    df.loc[filled_notes_indices, 'notes'] = df.loc[filled_notes_indices, 'name'].apply(lambda x: f'{x} is a ') + df.loc[
+        filled_notes_indices, 'notes'] + '.'
+
     df["full_notes"] = df["notes"].fillna("") + " " + df["context"].fillna("")
 
     # Remove obsolete columns
