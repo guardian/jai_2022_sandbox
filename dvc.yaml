@@ -7,7 +7,7 @@ stages:
     outs:
     - data/kb_entities_full.csv
   make_kb:
-    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb -e
+    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb
     deps:
       - data/kb_entities_full.csv
       - src/make_kb.py

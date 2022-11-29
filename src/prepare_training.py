@@ -102,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "input_files",
         nargs="+",
-        default=["data/el_session_1.jsonl", "data/el_session_2.jsonl"],
+        default=["data/el_session_1.jsonl", "data/el_session_2.jsonl", "data/el_session_3.jsonl"],
     )
     parser.add_argument(
         "-o",
