@@ -172,6 +172,8 @@ crime_expr = "was involved in "
 
 min_context_thres = 10
 
+redundancy_cols = ["birthdate", "deathdate", "website"]
+
 # Utility functions
 def url_generator(id_, name, dataset):
     """Generate usable link for item in `dataset` from id (+name)"""
@@ -307,18 +309,17 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
     properties_df["AKA"] = (
         properties_df["name"] + properties_df["alias"] + properties_df["weakAlias"]
     )
-    # properties_df.drop(['name', 'alias', 'weakAlias'], 1, inplace=True)
 
     # Generate single context text column from selected properties (see constants)
     i = 0
     for col in context_cols:
         if i == 0:
-            properties_df['context'] = properties_df[col].fillna('NAN')
+            properties_df["context"] = properties_df[col].fillna("NAN")
             i += 1
         else:
-            properties_df['context'] = properties_df['context'] + properties_df[col].fillna('NAN')
-    properties_df['context'] = properties_df['context'].str.replace('NAN', '')
-    properties_df['context'] = properties_df['context'].str.split('.').apply(lambda x: '. '.join(x))
+            properties_df["context"] = properties_df["context"] + properties_df[col].fillna("NAN")
+    properties_df["context"] = properties_df["context"].str.replace("NAN", "")
+    properties_df["context"] = properties_df["context"].str.split(".").apply(lambda x: ". ".join(x))
 
     # Convert notes to string
     properties_df["notes"] = (
@@ -353,18 +354,18 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
 
     # Remove useless context info
     min_context_notes_indices = df[
-        df['notes'].fillna('').str.replace(' ', '').apply(len) < min_context_thres].index.values
-    df.loc[min_context_notes_indices, 'notes'] = ''
-    empty_notes_indices = df[df['notes'].str.replace(' ', '').str.len() == 0].index.values
-    name_in_notes_indices = df[df.apply(lambda x: x['name'].lower() in x['notes'].lower(), axis=1)].index.values
-    filled_notes_indices = df[df['notes'].str.replace(' ', '').str.len() >= min_context_thres].index.values
+        df["notes"].fillna("").str.replace(" ", "").apply(len) < min_context_thres].index.values
+    df.loc[min_context_notes_indices, "notes"] = ""
+    empty_notes_indices = df[df["notes"].str.replace(" ", "").str.len() == 0].index.values
+    name_in_notes_indices = df[df.apply(lambda x: x["name"].lower() in x["notes"].lower(), axis=1)].index.values
+    filled_notes_indices = df[df["notes"].str.replace(" ", "").str.len() >= min_context_thres].index.values
     filled_notes_indices = set(filled_notes_indices).difference(set(name_in_notes_indices))
     # Include name in description when context is null
-    df.loc[empty_notes_indices, 'notes'] = df.loc[empty_notes_indices, 'name'].apply(
-        lambda x: f'This person is called {x}.')
+    df.loc[empty_notes_indices, "notes"] = df.loc[empty_notes_indices, "name"].apply(
+        lambda x: f"This person is called {x}.")
     # Include name in description when context is not null
-    df.loc[filled_notes_indices, 'notes'] = df.loc[filled_notes_indices, 'name'].apply(lambda x: f'{x} is a ') + df.loc[
-        filled_notes_indices, 'notes'] + '.'
+    df.loc[filled_notes_indices, "notes"] = df.loc[filled_notes_indices, "name"].apply(lambda x: f"{x} is a ") + df.loc[
+        filled_notes_indices, "notes"] + "."
 
     df["full_notes"] = df["notes"].fillna("") + " " + df["context"].fillna("")
 
@@ -387,14 +388,14 @@ def preprocess_lilsis(df, output_only=["PERSON"]):
         attributes_df["name"] + " is a " + attributes_df["blurb"] + "."
     )
 
-    # Transform 'start date' as birth date in sentence
+    # Transform "start date" as birth date in sentence
     attributes_df.loc[
         ~attributes_df["start_date"].isnull(), "start_date_sentence"
     ] = attributes_df.loc[~attributes_df["start_date"].isnull(), "start_date"].apply(
         lambda x: f"This person was born in {x}."
     )
 
-    # Transform 'end date' as death date into sentence
+    # Transform "end date" as death date into sentence
     attributes_df.loc[
         ~attributes_df["end_date"].isnull(), "end_date_sentence"
     ] = attributes_df.loc[~attributes_df["end_date"].isnull(), "end_date"].apply(
@@ -437,11 +438,6 @@ def preprocess_lilsis(df, output_only=["PERSON"]):
     attributes_df["extensions"] = attributes_df["extensions"].apply(
         lambda r: [r[key] for key in r.keys()]
     )
-    # unique_extension_keys_extension_keys = []
-    # df = attributes_df['extensions'].apply(lambda r: list(combine_dictionaries(r).keys()))
-    # for row in df:
-    #     unique_extension_keys_extension_keys.extend(row)
-    # del (df)
 
     # Add birthplace information and generate sentence
     valid_indices = attributes_df[
@@ -553,29 +549,27 @@ def main(input_files: List[Path], output_file: Path, verbose: bool = False):
     # Drop duplicated based on same name and description
     kb_entities.drop_duplicates(subset=["name", "desc"], inplace=True)
 
-    # Find duplicate entries on the 'id' column and concatenate their descriptions
+    # Find duplicate entries on the "id" column
     duplicate_entities_by_id = kb_entities[
         kb_entities["id"].duplicated(keep=False)
     ].sort_values(["id", "name"])
+    # Store index to drop after reset_index step
+    duplicate_entities_by_id_indices = duplicate_entities_by_id.index
+    # Concatenate duplicate descriptions
     duplicate_entities_by_id = (
-        duplicate_entities_by_id[["id", "desc"]]
-        .groupby(["id"])["desc"]
-        .apply(lambda x: " ".join(x))
-        .reset_index()
+        duplicate_entities_by_id[["id", "desc", "name"]]
+            .groupby(["id"])["desc", "name"]
+            .agg({"desc": lambda x: " ".join(x), "name": "first"})
+            .reset_index()
     )
 
-    # Remove those duplicates from dataset and replace them with concatenated description data
-    kb_entities.drop(duplicate_entities_by_id.index, inplace=True)
-    duplicate_entities_by_id = duplicate_entities_by_id[
-        duplicate_entities_by_id["id"].duplicated(keep=False)
-    ]
+    # Remove all duplicates from dataset and replace with concatenated descriptions
+    kb_entities.drop(duplicate_entities_by_id_indices, inplace=True)
     kb_entities = pd.concat([kb_entities, duplicate_entities_by_id])
 
-    ###CODE BELOW NEEDS REFACTOR
-    # Create auxiliary column for ordering based on len of desc field
+    # Create column for ordering based on len of desc field
     kb_entities["desc_len"] = kb_entities["desc"].str.len()
 
-    redundancy_cols = ["birthdate", "deathdate", "website"]
     for col in redundancy_cols:
         # Find duplicates ordered by description len
         redundant_entities_by_col = kb_entities[
