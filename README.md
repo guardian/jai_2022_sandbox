@@ -12,12 +12,9 @@ This Python repository provides a template of the code required to train a [spaC
 
 ## Structure:
 
-/src - code to pre-process datasets and train an EL model
-
-/prodigy - custom recipe to annotate training/test datasets 
-
-/data - dataset directory 
-
+`/src` - code to pre-process datasets and train an EL model
+`/prodigy` - custom recipe to annotate training/test datasets 
+`/data` - dataset directory 
 
 ## Datasets: 
 
