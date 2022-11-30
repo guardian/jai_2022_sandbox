@@ -7,25 +7,25 @@ stages:
       md5: c64a91e7a2731c38d8daa62ec7f5047f
       size: 315295602
     - path: src/kb_clean_merge_datasets.py
-      md5: fb0c45043dff907cd6ea87154d97200a
-      size: 20542
+      md5: d8715844fa512492b02c5b7b95ccdc9a
+      size: 22561
     outs:
     - path: data/kb_entities_full.csv
-      md5: c6e311d553b345943758aa4e7df152ac
-      size: 187712649
+      md5: 47ec8b3c8bb7be28b4c6114083edc286
+      size: 199510176
   make_kb:
-    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb -e
+    cmd: python src/make_kb.py data/kb_entities_full.csv -o data/kb
     deps:
     - path: data/kb_entities_full.csv
-      md5: c6e311d553b345943758aa4e7df152ac
-      size: 187712649
+      md5: 47ec8b3c8bb7be28b4c6114083edc286
+      size: 199510176
     - path: src/make_kb.py
-      md5: b790c341a24db7503f89cfd0c6e7fae0
-      size: 3871
+      md5: 886e634764c0d425f472ec6d2ede2d17
+      size: 4012
     outs:
     - path: data/kb
-      md5: 1ce8208db48260bf532cffd17234c4d8.dir
-      size: 461909202
+      md5: 70c08fbc2da7c7fc1cd474cf53811869.dir
+      size: 576106620
       nfiles: 2
   prepare:
     cmd: python src/prepare_training.py data/el_session_1.jsonl data/el_session_2.jsonl
@@ -35,41 +35,41 @@ stages:
       md5: 4f1e0d79b44f0bd3ddaabae7593350b0
       size: 10167346
     - path: data/el_session_2.jsonl
-      md5: c548fd593816cad4039b2c355b31b2d6
-      size: 6666006
+      md5: b23c54e5e6c0ee86814a7ec4d3808500
+      size: 13675625
     - path: src/prepare_training.py
-      md5: d71e75831e883dc6fc1e2ee327593220
-      size: 4067
+      md5: 4e2d8faa5ca01540060fb063e7515a60
+      size: 4094
     outs:
     - path: data/el_test.spacy
-      md5: 8b333a8fccb14b96658e1d5b15acd6f4
-      size: 331371
+      md5: 5ac03936017f6682cc452e227b936630
+      size: 450997
     - path: data/el_train.spacy
-      md5: d4d099cfbe6893ae3fa8f0a0d80b3ada
-      size: 492760
+      md5: c5700a20fc4e116e4b5b38d5b22643ca
+      size: 719137
   train:
     cmd: python -m spacy train src/configs/nel.cfg --paths.train data/el_train.spacy
       --paths.dev data/el_test.spacy --paths.kb data/kb --paths.base_nlp en_core_web_lg
       --output en-gu-el-1.0 -c src/scripts/custom_functions.py
     deps:
     - path: data/el_test.spacy
-      md5: 8b333a8fccb14b96658e1d5b15acd6f4
-      size: 331371
+      md5: 5ac03936017f6682cc452e227b936630
+      size: 450997
     - path: data/el_train.spacy
-      md5: d4d099cfbe6893ae3fa8f0a0d80b3ada
-      size: 492760
+      md5: c5700a20fc4e116e4b5b38d5b22643ca
+      size: 719137
     - path: data/kb
-      md5: 1ce8208db48260bf532cffd17234c4d8.dir
-      size: 461909202
+      md5: 28005f4a4eb3f6d5792c4572a8a8e521.dir
+      size: 576106613
       nfiles: 2
     - path: src/configs/nel.cfg
-      md5: 1c0a74c93bee0b483446ad5defe7def8
-      size: 2562
+      md5: 2aebfdf82bbf6fb2ca85bfe5aec08385
+      size: 2559
     - path: src/scripts/custom_functions.py
-      md5: a255a2d6c48766cead634a4ede8d8663
-      size: 769
+      md5: 5e9b4a4f4756068f4fa8d83e978dfe1d
+      size: 1036
     outs:
     - path: en-gu-el-1.0/
-      md5: 81e2bafe531437ee5876d4ede60a9c9c.dir
-      size: 2655639310
+      md5: a7f6763fd758230238b7393ef72678cd.dir
+      size: 2920461020
       nfiles: 32
