@@ -31,12 +31,12 @@ Each entity in the processed dataset will have an individual ID, an alias and a 
 Please be aware the final dataset still contains duplicated entities, i.e. two or more IDs referring to the same "real-world" entity. 
 
 ### Text Documents 
-The documents originally used in this work were article paragraphs acquired through the [Guardian Content API](https://open-platform.theguardian.com/)
-This dataset is interchangeable with any structured text containing named entities that be linked to the KBs. 
+The documents originally used in this work were article paragraphs acquired through the [Guardian Content API](https://open-platform.theguardian.com/).
+This dataset is interchangeable with any structured text containing named entities that can be linked to the KBs. 
 
 ### Prodigy annotations 
 The training and test datasets used to train and evaluate the model were manually generated using [Prodigy](https://prodi.gy/). 
-The custom Prodigy recipe used in this task is included 
+The custom Prodigy recipe used in this task is included in the /Prodigy folder.  
 
 ## Running the code:
 
