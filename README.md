@@ -1,4 +1,4 @@
-Training an Entity Linker model using spaCy and Prodigy 
+# Training an Entity Linker model using spaCy and Prodigy 
 
 This repository was created in December 2022 as a result of a project undertaken for the Journalism AI 2022 Fellowship. 
 The motivation behind the project can be found in this [Notion page](https://www.notion.so/badwillhunting/Recognising-bad-actors-in-data-leaks-with-AI-19d40278356f4f3eb52d5d1678d14971)
@@ -10,7 +10,7 @@ The project was conducted by:
 
 This Python repository provides a template of the code required to train a [spaCy](https://spacy.io/) entity linker model for PERSON text mentions. 
 
-Structure:
+## Structure:
 
 /src - code to pre-process datasets and train an EL model
 
@@ -19,7 +19,7 @@ Structure:
 /data - dataset directory 
 
 
-Datasets: 
+## Datasets: 
 
 Knowledge Bases
 --------------- 
@@ -41,12 +41,12 @@ Prodigy annotations
 The training and test datasets used to train and evaluate the model were manually generated using [Prodigy](https://prodi.gy/). 
 The custom Prodigy recipe used in this task is included 
 
-Running the code:
+## Running the code:
 
 The code requires pre-installation of the [DVC](https://dvc.org/) data versioning package in the project environment.
 Running the command `dvc repro` will run the code end-to-end. 
 
-Packaging the model:
+## Packaging the model:
 
 `python -m spacy package --force <trained_model_input_> <compiled_model_output_directory> --code scripts/.py`
 [More information](https://spacy.io/api/cli#package)
