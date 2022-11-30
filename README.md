@@ -42,7 +42,11 @@ Running the command `dvc repro` will run the code end-to-end.
 
 ## Packaging the model:
 
-`python -m spacy package --force <trained_model_input_> <compiled_model_output_directory> --code scripts/custom_functions.py`
+The entity linker model trained in this repository uses a custom function to generate a pool of candidates per text mention. 
+To package the model after training run the following cli command: 
+ 
+`python -m spacy package --force <trained_model_input_directory> <packaged_model_output_directory> --code scripts/custom_functions.py`
+
 [More information](https://spacy.io/api/cli#package)
 
 
