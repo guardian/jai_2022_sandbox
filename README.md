@@ -42,7 +42,7 @@ Running the command `dvc repro` will run the code end-to-end.
 
 ## Packaging the model:
 
-`python -m spacy package --force <trained_model_input_> <compiled_model_output_directory> --code scripts/.py`
+`python -m spacy package --force <trained_model_input_> <compiled_model_output_directory> --code scripts/custom_functions.py`
 [More information](https://spacy.io/api/cli#package)
 
 
