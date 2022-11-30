@@ -4,9 +4,9 @@ This repository was created in December 2022 as a result of a project undertaken
 The motivation behind the project can be found in this [Notion page](https://www.notion.so/badwillhunting/Recognising-bad-actors-in-data-leaks-with-AI-19d40278356f4f3eb52d5d1678d14971)
 
 The project was conducted by:
-    - Alet Law and Tinashe Munyuki from the [Daily Maverick](https://www.dailymaverick.co.za/)
-    - Dimitri Tokmetzis and Heleen Emanuel from [Follow the Money](https://www.ftm.eu/)
-    - Luis Flores, Michel Schammel and Anna Vissen from [The Guardian](https://www.theguardian.com/), the main developers of the codebase
+* Alet Law and Tinashe Munyuki from the [Daily Maverick](https://www.dailymaverick.co.za/)
+* Dimitri Tokmetzis and Heleen Emanuel from [Follow the Money](https://www.ftm.eu/)
+* Luis Flores, Michel Schammel and Anna Vissen from [The Guardian](https://www.theguardian.com/), the main developers of the codebase
 
 This Python repository provides a template of the code required to train a [spaCy](https://spacy.io/) entity linker model for PERSON text mentions. 
 
