@@ -247,8 +247,8 @@ def resolve_duplicates_on_id(df):
 
 def resolve_duplicates_by_column(df, col):
     """
-    Resolve duplicate entities by assuming that entities
-    sharing the same name and value in pre-defined columns
+    Resolve some of the duplicate entities by assuming that entities
+    sharing the same name/value (name/birth date, name/death date, ...) pairs
     refer to the same individual.
     """
     # Find duplicates ordered by description len

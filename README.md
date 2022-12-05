@@ -6,15 +6,15 @@ The motivation behind the project can be found in this [Notion page](https://www
 The project was conducted by:
 * Alet Law and Tinashe Munyuki from the [Daily Maverick](https://www.dailymaverick.co.za/)
 * Dimitri Tokmetzis and Heleen Emanuel from [Follow the Money](https://www.ftm.eu/)
-* Luis Flores, Michel Schammel and Anna Vissen from [The Guardian](https://www.theguardian.com/), the main developers of the codebase
+* Luis Flores, Michel Schammel and Anna Vissens from [The Guardian](https://www.theguardian.com/), the main developers of the codebase
 
 This Python repository provides a template of the code required to train a [spaCy](https://spacy.io/) entity linker model for PERSON text mentions. 
 
 ## Structure:
 
-`/src` - code to pre-process datasets and train an EL model \
-`/prodigy` - custom recipe to annotate training/test datasets \
-`/data` - dataset directory 
+`/src` - code to pre-process datasets and train an EL model 
+`/prodigy` - custom recipe to annotate training/test datasets 
+`/data` - dataset directory. All dataset files should be placed in this folder. 
 
 ## Datasets: 
 
@@ -30,10 +30,11 @@ Please be aware the final dataset still contains duplicated entities, i.e. two o
 ### Text Documents 
 The documents originally used in this work were article paragraphs acquired through the [Guardian Content API](https://open-platform.theguardian.com/).
 This dataset is interchangeable with any structured text containing named entities that can be linked to the KBs. 
+The text dataset should be used to create annotation files via Prodigy. Please refer the `/prodigy` REAME.md for more information.  
 
 ### Prodigy annotations 
 The training and test datasets used to train and evaluate the model were manually generated using [Prodigy](https://prodi.gy/). 
-The custom Prodigy recipe used in this task is included in the /Prodigy folder.  
+The custom Prodigy recipe used in this task is included in the `/prodigy` folder.  
 
 ## Running the code:
 

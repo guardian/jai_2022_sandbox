@@ -11,6 +11,12 @@ To start the annotation server, run the following:
  python -m prodigy entity_linker.manual <dataset name> <source_file> <nlp_model> <kb_file> <additional_info_entities_file> -F el_recipe.py
 ```
 
+<dataset name> - custom user input
+<source_file> - provided as jsonl. An example can be in prodigy/data/paragraph_text_mentions.jsonl. 
+<nlp_model> - default or a custom spaCy model
+<kb_file> - KB directory generated in the /data folder by the dvc pipeline
+<addiotional_info_entities_file> - .csv generated in the /data folder by the dvc pipeline
+
 To display the command reference on the CLI, run
 ```bash
 prodigy entity_linker.manual --help -F el_recipe.py
