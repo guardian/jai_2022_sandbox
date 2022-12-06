@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import spacy
 from spacy.kb import KnowledgeBase
-from pathlib import Path
 
 
 def load_entities(kb_data):
@@ -26,6 +25,9 @@ def get_embedding_dim(nlp):
 
 
 def main(input_file, output_file, nlp_model, empty=False, subset=None):
+    """
+    Create spaCy KnowledgeBase object by generating aliases and embedding the description fields.
+    """
 
     # Load data and model
     data = pd.read_csv(input_file, index_col=0)
@@ -75,7 +77,6 @@ def main(input_file, output_file, nlp_model, empty=False, subset=None):
                 alias=str(name), entities=[str(qid)], probabilities=[0.001] # Use a small prior probability to avoid biasing
             )  # 100% prior probability P(entity|alias)
 
-    ### REFACTOR?
     for alias_ in alias_dict.keys():
         qids = alias_dict[alias_]
         # probs = [round(1 / len(qids), 2) - 0.01 for qid in qids]
@@ -86,6 +87,7 @@ def main(input_file, output_file, nlp_model, empty=False, subset=None):
 
     if subset is not None:
         print(f"IDS in KB: {kb.get_entity_strings()}")
+
     # Save file
     kb.to_disk(output_file)
     print(f"Created Knowledge Base containing {kb.get_size_entities()} entities and {kb.get_size_aliases()} aliases.")

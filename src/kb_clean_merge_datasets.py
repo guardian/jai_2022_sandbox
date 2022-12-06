@@ -310,6 +310,11 @@ def remove_trailing_stops(df):
     return df
 
 def preprocess_open_sanctions(df, output_only=["PERSON"]):
+    """
+    Reformat and clean open_sanctions.json input data
+    into a pandas dataframe.
+    """
+
     # Only keep entities with an entry on the name field
     df = df[df["properties"].apply(lambda x: "name" in x)]
 
@@ -468,6 +473,10 @@ def preprocess_open_sanctions(df, output_only=["PERSON"]):
 
 
 def preprocess_lilsis(df, output_only=["PERSON"]):
+    """
+    Reformat and clean lilsis.json input data
+    into a pandas dataframe.
+    """
 
     # Get attributes for each entity and only work with entity types requested
     attributes_df = pd.DataFrame.from_dict(df["attributes"].tolist())
@@ -586,6 +595,10 @@ def read_data(path, dataset_name_):
 
 
 def main(input_files: List[Path], output_file: Path, verbose: bool = False):
+    """
+    Pre-process and concatenate open sanctions/lilsis data to export as csv.
+    """
+
     # Read in datasets
     inputs = []
     for inp in input_files:

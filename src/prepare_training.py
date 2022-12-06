@@ -46,6 +46,10 @@ def make_doc(example, nlp):
 
 
 def main(input_files, out_stem, nlp_model="en_core_web_lg", subset=None, verbose=False):
+    """
+    Prepare datasets to train/test EL model
+    """
+
     inputs = [pandas.read_json(inp, lines=True) for inp in input_files]
     df = pandas.concat(inputs)
 
