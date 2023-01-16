@@ -8,4 +8,4 @@ The notebooks should be run sequentially according to the numbering on their fil
 
 3_gu_paragraph_sample.ipynb - Downsample paragraphs to use in the creation of the final dataset to train/
 
-All datasets imported and exported by these notebooks should be stored under /1_sample_gu_paragraphs/assets/
+All datasets imported by these notebooks should be stored under /1_sample_gu_paragraphs/assets/
