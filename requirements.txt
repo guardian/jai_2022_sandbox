@@ -28,7 +28,7 @@ idna==3.4
 importlib-metadata==4.12.0
 importlib-resources==5.9.0
 ipykernel==6.15.3
-ipython==7.34.0
+ipython==8.10.0
 ipython-genutils==0.2.0
 jarowinkler==1.2.1
 jedi==0.18.1
