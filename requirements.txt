@@ -92,7 +92,7 @@ spacy==3.2.4
 spacy-legacy==3.0.10
 spacy-loggers==1.0.3
 srsly==2.4.4
-starlette==0.14.2
+starlette==0.36.2
 terminado==0.15.0
 thinc==8.0.17
 tinycss2==1.1.1
